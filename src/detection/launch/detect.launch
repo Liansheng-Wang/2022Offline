@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <arg name="rgb_topic"   default= "/camera/color/image_raw"/> 
+  <arg name="depth_topic" default= "/camera/depth/image_raw"/> 
+  <arg name="target_topic"   default= "/detect/targets"/> 
+  <arg name="result_topic"   default= "/detect/image_show"/> 
+  
+  <node pkg="detection" type="detect_node" name="detect_node" output="screen">
+    <param name="rgb_topic" value= "$(arg rgb_topic)" />
+    <param name="depth_topic" value= "$(arg depth_topic)" />
+    <param name="target_topic" value= "$(arg target_topic)" />
+    <param name="result_topic" value= "$(arg result_topic)" />
+  </node>
+
+</launch>
