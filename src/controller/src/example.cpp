@@ -85,7 +85,11 @@ int main(int argc, char** argv)
           ROS_INFO("Offboard enabled");
       }
       last_request = ros::Time::now();
-    } else break;
+    }
+    else {
+      set_mode_client.call(srv_setMode);
+      break;
+    }
     local_pos_pub.publish(pose);
     rate.sleep();
   }
@@ -98,12 +102,12 @@ int main(int argc, char** argv)
   while(ros::ok() && current_state.mode != "OFFBOARD"){
       ros::spinOnce();
       local_pos_pub.publish(pose);
-      ROS_INFO_STREAM_THROTTLE(20,"\033[33m ---> Waiting change to OFFBOARD... \033[0m");
+      ROS_INFO_STREAM_THROTTLE(20,"\033[33m ---> Waiting change to OFFBOARD \033[0m");
       rate.sleep();
   }
   ROS_INFO("\033[32m ---> Detected OFFBOARD MODE! \033[0m");
 
-  // Step4: 给一个位置指令给飞机，飞机起飞。
+  // Step5: 给一个位置指令给飞机，飞机起飞。
   ROS_INFO("\033[32m ---> Takeoff... \033[0m");
   last_request = ros::Time::now();
   while (ros::ok() && ros::Time::now() - last_request < ros::Duration(20.0))
