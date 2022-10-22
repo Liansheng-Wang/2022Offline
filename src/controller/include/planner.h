@@ -118,8 +118,7 @@ public:
   {
     State pathPoint;
     if(rr_t > totalTime_){
-      ROS_ERROR("---> Real time is oversize than totalTime_!");
-      return pathPoint;
+      ROS_INFO("\033[33m ---> Real time is oversize than totalTime! \033[0m");
     }
     caluTime(rr_t);
     {
