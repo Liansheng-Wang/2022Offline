@@ -8,6 +8,13 @@ namespace Simulate{
     Controller controller;
     controller.arm();
     controller.setMode("OFFBOARD");
-    controller.takeoff(5.0);
+    controller.takeoff(2.0);
+
+    
+
+
+
+
+
   }
 };
