@@ -1,15 +1,19 @@
-#pragma once;
+#pragma once
 
 #include <string>
 #include <thread>
 #include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/Imu.h>
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/AttitudeTarget.h>
+
+#include <common.h>
 
 
 enum ControlFSM
@@ -27,7 +31,8 @@ public:
   Controller(): loopRate_(30), controlFSM_(ControlFSM::Init), FLAG_running_(true)
   {
     stateSub_           = nh_.subscribe<mavros_msgs::State>("/mavros/state", 1, &Controller::StateCb, this, ros::TransportHints().tcpNoDelay());
-    poseSub_            = nh_.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, &Controller::PoseCb, this, ros::TransportHints().tcpNoDelay());
+    odomSub_            = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom", 1, &Controller::PoseCb, this, ros::TransportHints().tcpNoDelay());
+    accSub_             = nh_.subscribe<sensor_msgs::Imu>("/mavros/imu/data", 1, &Controller::IMUCb, this, ros::TransportHints().tcpNoDelay());
     positionPub_        = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local",    10);
     velPub_             = nh_.advertise<geometry_msgs::TwistStamped>("/mavros/setpoint_velocity/cmd_vel", 10);
     posePub_            = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude",     10);
@@ -35,7 +40,7 @@ public:
     armingClient_       = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     modeClient_         = nh_.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
 
-    threadPub_ = new std::thread(boost::bind(&Controller::publishThread, this));
+    threadPub_ = new std::thread(std::bind(&Controller::publishThread, this));
   }
 
   ~Controller(){
@@ -49,8 +54,20 @@ public:
     uavState_ = *msg;
   }
 
-  void PoseCb(const geometry_msgs::PoseStamped::ConstPtr& msg){
+  void IMUCb(const sensor_msgs::Imu::ConstPtr& msg){
+    motionState_.acc = {msg->linear_acceleration.x,
+                        msg->linear_acceleration.y,
+                  9.8 - msg->linear_acceleration.z};
+  }
+
+  void PoseCb(const nav_msgs::Odometry::ConstPtr& msg){
     uavPose_ = *msg;
+    motionState_.pt ={uavPose_.pose.pose.position.x,
+                      uavPose_.pose.pose.position.y,
+                      uavPose_.pose.pose.position.z};
+    motionState_.vel={uavPose_.twist.twist.linear.x,
+                      uavPose_.twist.twist.linear.y,
+                      uavPose_.twist.twist.linear.z};
   }
 
   void publishThread()
@@ -88,12 +105,12 @@ public:
   void takeoff(double height){
     ros::spinOnce();
     geometry_msgs::PoseStamped setpoint;
-    setpoint.pose.position.x = uavPose_.pose.position.x;
-    setpoint.pose.position.y = uavPose_.pose.position.y;
-    setpoint.pose.position.z = uavPose_.pose.position.z + height;
+    setpoint.pose.position.x = uavPose_.pose.pose.position.x;
+    setpoint.pose.position.y = uavPose_.pose.pose.position.y;
+    setpoint.pose.position.z = uavPose_.pose.pose.position.z + height;
     msgPosition_ = setpoint;
     controlFSM_ = ControlFSM::Position;
-    while(abs(uavPose_.pose.position.z - setpoint.pose.position.z) > 0.25){
+    while(ros::ok() && abs(uavPose_.pose.pose.position.z - setpoint.pose.position.z) > 0.25){
       ros::spinOnce();
       loopRate_.sleep();
     }
@@ -103,9 +120,12 @@ public:
   bool land(){
     mavros_msgs::CommandTOL srvLand{};
     if (landClient_.call(srvLand) && srvLand.response.success)
+    {
+      ROS_INFO("\033[32m ---> Land Send Success! \033[0m");
       return true;
-    else
-      return false;
+    }
+    ROS_INFO("\033[31m ---> Land Send Fail! \033[0m");
+    return false;
   }
 
   bool disarm(){
@@ -135,9 +155,9 @@ public:
     if(modeName == "OFFBOARD"){
       ros::spinOnce();
       geometry_msgs::PoseStamped setpoint;
-      setpoint.pose.position.x = uavPose_.pose.position.x;
-      setpoint.pose.position.y = uavPose_.pose.position.y;
-      setpoint.pose.position.z = uavPose_.pose.position.z;
+      setpoint.pose.position.x = uavPose_.pose.pose.position.x;
+      setpoint.pose.position.y = uavPose_.pose.pose.position.y;
+      setpoint.pose.position.z = uavPose_.pose.pose.position.z;
       msgPosition_ = setpoint;
       controlFSM_ = ControlFSM::Position;
       for (int i = 100; ros::ok() && i > 0; --i) {
@@ -157,10 +177,36 @@ public:
     return false;
   }
 
+  void setPoint(geometry_msgs::PoseStamped& point){
+    if(controlFSM_ != ControlFSM::Position){
+      controlFSM_ = ControlFSM::Position;
+    }
+    msgPosition_ = point;
+  }
+
+  void setVel(geometry_msgs::TwistStamped& vel){
+    if(controlFSM_ != ControlFSM::Velocity){
+      controlFSM_ = ControlFSM::Velocity;
+    }
+    msgVel_ = vel;
+  }
+
+  void setPose(mavros_msgs::AttitudeTarget& pose){
+    if(controlFSM_ != ControlFSM::Pose){
+      controlFSM_ = ControlFSM::Pose;
+    }
+    msgPose_ = pose;
+  }
+
+  State getPose(){
+    return motionState_;
+  }
+
 public:
   ros::NodeHandle    nh_;
   ros::Subscriber    stateSub_;
-  ros::Subscriber    poseSub_;
+  ros::Subscriber    odomSub_;
+  ros::Subscriber    accSub_;
   ros::Publisher     positionPub_;
   ros::Publisher     velPub_;
   ros::Publisher     posePub_;
@@ -169,7 +215,8 @@ public:
   ros::ServiceClient modeClient_;
   ros::Rate loopRate_;
   mavros_msgs::State uavState_;
-  geometry_msgs::PoseStamped uavPose_;
+  nav_msgs::Odometry uavPose_;
+  State motionState_;
   
   bool FLAG_running_;
   ControlFSM controlFSM_;

@@ -2,7 +2,7 @@
 
 
 namespace UAVparam{
-  double MaxVel = 3.0;
+  double MaxVel = 1.0;
   double MaxAcc = 1.0;
 
 

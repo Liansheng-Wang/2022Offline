@@ -1,4 +1,4 @@
-#pragma once;
+#pragma once
 
 #include <uav_control/controller.h>
 
