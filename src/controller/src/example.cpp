@@ -70,7 +70,7 @@ int main(int argc, char** argv)
     local_pos_pub.publish(pose);
     rate.sleep();
   }
-  ROS_INFO("\033[32m ---> Disarmd Success! \033[0m");
+  ROS_INFO("\033[32m ---> Armd Success! \033[0m");
 
   // Step3: 将无人机切换到 offboard模式 。
   // 注意: 无人机在进入offboard模式后,必须有一定频率的控制指令,否则飞机坠毁!

@@ -33,3 +33,6 @@ include_directories(
 
 add_executable(example_node src/example.cpp)
 target_link_libraries(example_node ${catkin_LIBRARIES})
+
+add_executable(auto_fly src/autoFly.cpp)
+target_link_libraries(auto_fly ${catkin_LIBRARIES})
