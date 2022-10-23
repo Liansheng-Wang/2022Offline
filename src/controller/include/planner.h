@@ -10,6 +10,8 @@
 #include <ros/ros.h>
 #include <nav_msgs/Path.h>
 #include <mutex>
+#include <visualization_msgs/MarkerArray.h>
+#include <tf/tf.h>
 
 namespace UP = UAVparam;
 
@@ -18,7 +20,8 @@ class Planner
 public:
   Planner(){
     initConstant();
-    pathPub_ = nh_.advertise<nav_msgs::Path>("/visual/planner/path", 1);
+    pathPub_   = nh_.advertise<nav_msgs::Path>("/visual/planner/path", 1);
+    targetPub_ = nh_.advertise<visualization_msgs::MarkerArray>("/visual/planner/target", 1);
     FLAG_pathChange_ = false;
     FLAG_running_ = true;
     msgPath_.header.frame_id = "map";
@@ -33,13 +36,16 @@ public:
   }
 
   void visualThread(){
-    ros::Rate loopRate(10);
+    ros::Rate loopRate(2);
     while(ros::ok() && FLAG_running_){
       if(FLAG_pathChange_){
         reCalPath();
       }
       if(!msgPath_.poses.empty()){
         pathPub_.publish(msgPath_);
+      }
+      if(!msgMarkers.markers.empty()){
+        targetPub_.publish(msgMarkers);
       }
       loopRate.sleep();
     }
@@ -80,6 +86,36 @@ public:
     FLAG_pathChange_ = false;
   }
 
+  // wps -> waypoints, ps -> pose
+  void setTargetMarker(std::vector<Eigen::Vector3d>& wps, std::vector<double>& ps){
+    msgMarkers.markers.clear();
+    for(int i=0; i < wps.size(); i++)
+    {
+      visualization_msgs::Marker marker;
+      marker.ns = "target";
+      marker.id = i;
+      marker.header.frame_id = "map";
+      marker.pose.position.x = wps[i][0];
+      marker.pose.position.y = wps[i][1];
+      marker.pose.position.z = wps[i][2];
+      auto tf_q = tf::createQuaternionFromRPY(0, M_PI_2, ps[i]/180*M_PI);
+      marker.pose.orientation.w = tf_q.w();
+      marker.pose.orientation.x = tf_q.x();
+      marker.pose.orientation.y = tf_q.y();
+      marker.pose.orientation.z = tf_q.z();
+      marker.color.a = 0.5;
+      marker.color.b = 51;
+      marker.color.g = 51;
+      marker.color.r = 204;
+      marker.scale.x = 2.5;
+      marker.scale.y = 2.5;
+      marker.scale.z = 0.1;
+      marker.action = 0;
+      marker.type = 3;
+      msgMarkers.markers.push_back(marker);
+    }
+  } 
+
   void plan(const State& start, const State& end)
   {
     totalTime_ = (end.pt - start.pt).norm()   / UP::MaxVel + 
@@ -106,7 +142,7 @@ public:
     constant_b.row(4) = end.vel.transpose();
     constant_b.row(5) = end.acc.transpose();
 
-    std::cout << "constant_b:   " << std::endl;
+    ROS_INFO("\033[32m ---> Planning.... \033[0m");
     std::cout << constant_b << std::endl;
 
     PathCoe_ = Polynomial_ * constant_b;
@@ -118,7 +154,7 @@ public:
   {
     State pathPoint;
     if(rr_t > totalTime_){
-      ROS_INFO("\033[33m ---> Real time is oversize than totalTime! \033[0m");
+      ROS_INFO("\033[33m ---> Need replan! \033[0m");
     }
     caluTime(rr_t);
     {
@@ -167,7 +203,9 @@ private:
 
   ros::NodeHandle nh_;
   ros::Publisher pathPub_;
+  ros::Publisher targetPub_;
   nav_msgs::Path msgPath_;
+  visualization_msgs::MarkerArray msgMarkers;
   std::thread* visulThread_ = nullptr;
   std::atomic_bool FLAG_pathChange_;
   std::atomic_bool FLAG_running_;

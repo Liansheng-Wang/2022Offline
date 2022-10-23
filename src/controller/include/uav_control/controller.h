@@ -13,6 +13,7 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/AttitudeTarget.h>
 #include <mavros_msgs/PositionTarget.h>
+#include <mavros_msgs/HomePosition.h>
 
 #include <common.h>
 
@@ -30,11 +31,12 @@ enum ControlFSM
 class Controller
 {
 public:
-  Controller(): loopRate_(30), controlFSM_(ControlFSM::Init), FLAG_running_(true)
+  Controller(): loopRate_(30), controlFSM_(ControlFSM::Init), FLAG_running_(true), FLAG_homeSet_(false)
   {
-    stateSub_     = nh_.subscribe<mavros_msgs::State>("/mavros/state",                              1, &Controller::StateCb, this, ros::TransportHints().tcpNoDelay());
-    odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom",                1, &Controller::PoseCb,  this, ros::TransportHints().tcpNoDelay());
-    accSub_       = nh_.subscribe<sensor_msgs::Imu>("/mavros/imu/data",                             1, &Controller::IMUCb,   this, ros::TransportHints().tcpNoDelay());
+    stateSub_     = nh_.subscribe<mavros_msgs::State>("/mavros/state",                     1, &Controller::StateCb, this, ros::TransportHints().tcpNoDelay());
+    odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom",       1, &Controller::PoseCb,  this, ros::TransportHints().tcpNoDelay());
+    accSub_       = nh_.subscribe<sensor_msgs::Imu>("/mavros/imu/data",                    1, &Controller::IMUCb,   this, ros::TransportHints().tcpNoDelay());
+    homeSub_      = nh_.subscribe<mavros_msgs::HomePosition>("/mavros/home_position/home", 1, &Controller::setHomeGeoPointCB, this);
     positionPub_  = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local",    10);
     velPub_       = nh_.advertise<geometry_msgs::TwistStamped>("/mavros/setpoint_velocity/cmd_vel", 10);
     pvayPub_      = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local",        10);
@@ -76,6 +78,10 @@ public:
                       uavPose_.twist.twist.linear.z};
   }
 
+  void setHomeGeoPointCB(const mavros_msgs::HomePositionConstPtr& home){
+    FLAG_homeSet_ = true;
+  }
+
   double fromQuaternion2yaw(const geometry_msgs::Quaternion& q){
     double yaw = atan2(2 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
     return yaw;
@@ -107,6 +113,23 @@ public:
         break;
       }      
       default:
+        break;
+      }
+      loopRate_.sleep();
+    }
+  }
+
+  void waitHomeSet(){
+    while(ros::ok()){
+      ros::spinOnce();
+      if(uavState_.connected){
+        break;
+      }
+      loopRate_.sleep();
+    }
+    while(ros::ok()){
+      ros::spinOnce();
+      if(FLAG_homeSet_){
         break;
       }
       loopRate_.sleep();
@@ -225,6 +248,7 @@ public:
   ros::Subscriber    stateSub_;
   ros::Subscriber    odomSub_;
   ros::Subscriber    accSub_;
+  ros::Subscriber    homeSub_;
   ros::Publisher     positionPub_;
   ros::Publisher     velPub_;
   ros::Publisher     pvayPub_;
@@ -237,6 +261,7 @@ public:
   nav_msgs::Odometry uavPose_;
   State motionState_;
   
+  bool FLAG_homeSet_;
   bool FLAG_running_;
   ControlFSM controlFSM_;
   std::thread* threadPub_ = nullptr;

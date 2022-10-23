@@ -35,7 +35,9 @@ namespace Simulate{
     State curState;
     State tarState;
     Planner planner;
+    planner.setTargetMarker(waypoints, poses);
     Controller controller;
+    controller.waitHomeSet();
     controller.arm();
     controller.setMode("OFFBOARD");
     controller.takeoff(1.1);
@@ -75,7 +77,9 @@ namespace Simulate{
     State curState;
     State tarState;
     Planner planner;
+    planner.setTargetMarker(waypoints, poses);
     Controller controller;
+    controller.waitHomeSet();
     controller.arm();
     controller.setMode("OFFBOARD");
     controller.takeoff(1.1);
