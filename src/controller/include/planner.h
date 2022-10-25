@@ -89,29 +89,29 @@ public:
   // wps -> waypoints, ps -> pose
   void setTargetMarker(std::vector<Eigen::Vector3d>& wps, std::vector<double>& ps){
     msgMarkers.markers.clear();
-    for(int i=0; i < wps.size(); i++)
-    {
+    for(int i=0; i < wps.size(); i++){
+      auto tf_q = tf::createQuaternionFromRPY(0, M_PI_2, ps[i]/180*M_PI);
       visualization_msgs::Marker marker;
+      marker.mesh_resource = std::string("package://controller/configs/meshes/circle.mesh");
+      marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+      marker.action = visualization_msgs::Marker::ADD;
       marker.ns = "target";
       marker.id = i;
       marker.header.frame_id = "map";
       marker.pose.position.x = wps[i][0];
       marker.pose.position.y = wps[i][1];
       marker.pose.position.z = wps[i][2];
-      auto tf_q = tf::createQuaternionFromRPY(0, M_PI_2, ps[i]/180*M_PI);
       marker.pose.orientation.w = tf_q.w();
       marker.pose.orientation.x = tf_q.x();
       marker.pose.orientation.y = tf_q.y();
       marker.pose.orientation.z = tf_q.z();
       marker.color.a = 0.5;
-      marker.color.b = 51;
-      marker.color.g = 51;
-      marker.color.r = 204;
-      marker.scale.x = 2.5;
-      marker.scale.y = 2.5;
-      marker.scale.z = 0.1;
-      marker.action = 0;
-      marker.type = 3;
+      marker.color.b = 0;
+      marker.color.g = 0;
+      marker.color.r = 255;
+      marker.scale.x = 1;
+      marker.scale.y = 1;
+      marker.scale.z = 1;
       msgMarkers.markers.push_back(marker);
     }
   } 
