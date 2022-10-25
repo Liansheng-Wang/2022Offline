@@ -1,6 +1,6 @@
 #pragma once
 
-#include <param.h>
+#include <uav_control/param.h>
 #include <common.h>
 #include <tuple>
 #include <vector>
@@ -109,9 +109,9 @@ public:
       marker.color.b = 0;
       marker.color.g = 0;
       marker.color.r = 255;
-      marker.scale.x = 1;
-      marker.scale.y = 1;
-      marker.scale.z = 1;
+      marker.scale.x = 0.001;
+      marker.scale.y = 0.001;
+      marker.scale.z = 0.001;
       msgMarkers.markers.push_back(marker);
     }
   } 
