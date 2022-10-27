@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node pkg="controller" type="auto_fly" name="autoFly" output="screen"/>
+
+  <node pkg="rviz" type="rviz" name="visual" args="-d $(find controller)/visual/rviz/visual.rviz" />
+
+</launch>

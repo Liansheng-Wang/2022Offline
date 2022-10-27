@@ -73,7 +73,7 @@
     <include>
     <name>mark_ring_9</name>
       <uri>model://mark_ring</uri>
-      <pose>28.00 7.50 0.3 0 0 1.2216</pose>
+      <pose>28.00 7.60 0.3 0 0 1.2216</pose>
     </include>
 
     <physics name='default_physics' default='0' type='ode'>
