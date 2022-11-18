@@ -1,11 +1,13 @@
 #pragma once
 
-#include <common/common.h>
+#include <common/base.h>
 #include <plan/planner.h>
-#include <control/controller.h>
+#include <control/actuator.h>
 #include <visual/visualTools.h>
 #include <vector>
 #include <Eigen/Core>
+
+#include <plan_env/voxelmap.h>
 
 namespace Simulate{
   std::vector<Eigen::Vector3d> waypoints;
@@ -32,59 +34,15 @@ namespace Simulate{
     InitWayPoints();
     ros::NodeHandle nh;
     auto positionPub_ = nh.advertise<geometry_msgs::Pose>("/test/points", 10);
-    State curState;
-    State tarState;
-    Planner planner;
-    planner.setTargetMarker(waypoints, poses);
-    Actuator controller;
-    VisualTool visualtool;
-    controller.waitHomeSet();
-    controller.arm();
-    controller.setMode("OFFBOARD");
-    controller.takeoff(1.1);
-    ros::spinOnce();
-    curState = controller.getPose();
-    tarState.pt  = waypoints[0];
-    tarState.vel <<1, 0, 0;
-    planner.plan(curState, tarState);
-    double t_t = planner.getTotalTime();
-    geometry_msgs::TwistStamped cmdVel;
-    double rr_t = 0;
-    ros::Time startTime  = ros::Time::now();
-    ros::Time actionTime = ros::Time::now();
-    while(ros::ok() && rr_t < t_t)
-    {
-      ros::spinOnce();
-      actionTime = ros::Time::now();
-      rr_t = (actionTime - startTime).toSec();
-      auto pt2follow =  planner.getPathPoint(rr_t);
-      curState = controller.getPose();
-      Eigen::Vector3d velEigen = 1.0 *(pt2follow.pt - curState.pt) + pt2follow.vel - 0.2 * (curState.vel - pt2follow.vel);
-      cmdVel.header.stamp = ros::Time::now();
-      cmdVel.twist.linear.x = velEigen[0];
-      cmdVel.twist.linear.y = velEigen[1];
-      cmdVel.twist.linear.z = velEigen[2];
-      controller.setVel(cmdVel);
-    }
-    controller.land();
-  }
-
-  // 测试全状态输出
-  void run2()
-  {
-    InitWayPoints();
-    ros::NodeHandle nh;
-    auto positionPub_ = nh.advertise<geometry_msgs::Pose>("/test/points", 10);
-    State curState;
-    State tarState;
+    State curState, tarState;
     Planner planner;
     VisualTool visualtool;
-    planner.setTargetMarker(waypoints, poses);
-    Actuator controller;
-    controller.waitHomeSet();
-    controller.arm();
-    controller.setMode("OFFBOARD");
-    controller.takeoff(1.1);
+    visualtool.setTargetMarker(waypoints, poses);
+    Actuator actuator;
+    actuator.waitHomeSet();
+    actuator.arm();
+    actuator.setMode("OFFBOARD");
+    actuator.takeoff(1.1);
 
     // ====================================
     int index = -1;
@@ -97,7 +55,7 @@ namespace Simulate{
     {
       ros::spinOnce();
       index++;
-      curState = controller.getPose();
+      curState = actuator.getPose();
       tarState.pt  = waypoints[index];
       tarState.vel = {UAVparam::MaxVel * cos(poses[index]/180*M_PI), UAVparam::MaxVel * sin(poses[index]/180*M_PI), 0};
       planner.plan(curState, tarState);
@@ -111,7 +69,7 @@ namespace Simulate{
         actionTime = ros::Time::now();
         rr_t = (actionTime - startTime).toSec();
         State pt2follow =  planner.getPathPoint(rr_t);
-        curState = controller.getPose();
+        curState = actuator.getPose();
         cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
         cmdPVAY.coordinate_frame = 1;
         cmdPVAY.header.stamp = ros::Time::now();
@@ -125,10 +83,10 @@ namespace Simulate{
         cmdPVAY.acceleration_or_force.y = pt2follow.acc[1];
         cmdPVAY.acceleration_or_force.z = pt2follow.acc[2];
         cmdPVAY.yaw = atan2(pt2follow.vel[1], pt2follow.vel[0]);
-        controller.setPVAY(cmdPVAY);
+        actuator.setPVAY(cmdPVAY);
       }
     }
-    controller.land();
+    actuator.land();
 
     ros::Rate loopRate(5);
     while(ros::ok())

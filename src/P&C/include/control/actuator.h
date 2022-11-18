@@ -22,7 +22,7 @@
 #include <mavros_msgs/PositionTarget.h>
 #include <mavros_msgs/HomePosition.h>
 
-#include <common/common.h>
+#include <common/base.h>
 
 
 enum ActionFSM

@@ -12,9 +12,12 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   mavros
   mavros_msgs
+  message_filters
 )
 
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV 4 REQUIRED)
+find_package(PCL 1.7 REQUIRED)
 
 catkin_package(
  INCLUDE_DIRS include
@@ -29,7 +32,11 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
+link_directories(${PCL_LIBRARY_DIRS})
+
 add_executable(auto_fly src/autoFly.cpp)
-target_link_libraries(auto_fly ${catkin_LIBRARIES})
+target_link_libraries(auto_fly ${catkin_LIBRARIES} ${PCL_LIBRARY_DIRS})
