@@ -1,5 +1,7 @@
 #pragma once
 
+#include <common/base.h>
+#include <queue>
 #include <iostream>
 #include <tf/tf.h>
 #include <ros/ros.h>
@@ -11,11 +13,16 @@
 class VisualTool
 {
 public:
-  VisualTool(){
-    initMarker();
+  VisualTool():FLAG_running_(true), FLAG_initDetect_(false),
+    FLAG_globalChange_(false), FLAG_localChange_(false)
+  {
+    initMsg();
     odomSub_ = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom", 1, &VisualTool::PoseCb, this);
-    odomMarkPub_ = nh_.advertise<visualization_msgs::Marker>("/visual/uav/pose", 1);
+    odomMarkPub_   = nh_.advertise<visualization_msgs::Marker>("/visual/uav/pose", 1);
     detectMarkPub_ = nh_.advertise<visualization_msgs::MarkerArray>("/visual/planner/target", 1);
+    globalTrjPub_  = nh_.advertise<nav_msgs::Path>("/visual/planner/globaltrj", 1);
+    localTrjPub_   = nh_.advertise<nav_msgs::Path>("/visual/planner/localtrj", 1);
+
     visulThread_ = new std::thread(std::bind(&VisualTool::visualThread, this));
   }
 
@@ -54,11 +61,12 @@ public:
       marker.scale.z = 1;
       detectMarkers_.markers.push_back(marker);
     }
+    FLAG_initDetect_ = true;
   }
 
 
 private:
-  void initMarker(){
+  void initMsg(){
     msgMarkerOdom_.action = visualization_msgs::Marker::ADD;
     msgMarkerOdom_.mesh_resource = std::string("package://controller/visual/meshes/uav.dae");
     msgMarkerOdom_.type = visualization_msgs::Marker::MESH_RESOURCE;
@@ -72,13 +80,36 @@ private:
     msgMarkerOdom_.scale.x = 4;
     msgMarkerOdom_.scale.y = 4;
     msgMarkerOdom_.scale.z = 4;
+
+    // 初始化的时候先丢一个垃圾进去
+    nav_msgs::Path msgPath;
+    msgPath.header.frame_id = "map";
+    msgPath.header.stamp = ros::Time::now();
+    msgGlobalPath_.push(msgPath);
+    msgLocalPath_.push(msgPath);
   }
 
   void visualThread(){
     ros::Rate loopRate(2);
     while(ros::ok() && FLAG_running_){
-      if(!detectMarkers_.markers.empty() && detectMarkPub_.getNumSubscribers()){
-        detectMarkPub_.publish(detectMarkers_);
+      if(FLAG_initDetect_){
+        if(!detectMarkers_.markers.empty() && detectMarkPub_.getNumSubscribers()){
+          detectMarkPub_.publish(detectMarkers_);
+        }
+      }
+      if(FLAG_globalChange_){
+        msgGlobalPath_.pop();
+        FLAG_globalChange_ = false;
+      }
+      if(FLAG_localChange_){
+        msgLocalPath_.pop();
+        FLAG_localChange_ = false;
+      }
+      if(globalTrjPub_.getNumSubscribers() && !msgGlobalPath_.front().poses.empty()){
+        globalTrjPub_.publish(msgGlobalPath_.front());
+      }
+      if(localTrjPub_.getNumSubscribers() && !msgLocalPath_.front().poses.empty()){
+        localTrjPub_.publish(msgLocalPath_.front());
       }
       loopRate.sleep();
     }
@@ -87,9 +118,10 @@ private:
   // 相当于需要重新显示这个路径
   // 全局只规划一次的路径可以从这里来规划。但是全局的路径肯定也会调整的！
   // 重规划的路径也需要从这里来显示吗？
-  // FIXME: 这个问题先不处理。
-  void reCalPath(double& totalTime, Eigen::Matrix<double, 6, 3>& PathCoe_){
-    msgPath_.poses.clear();
+  void getGlobalTrj(double& totalTime, Eigen::Matrix<double, 6, 3>& PathCoe_){
+    nav_msgs::Path msgPath;
+    msgPath.header.frame_id = "map";
+    msgPath.header.stamp = ros::Time::now();
     double tt_time;
     Eigen::Matrix<double, 6, 3> PathCoe;
     {
@@ -98,18 +130,17 @@ private:
       PathCoe = PathCoe_;
     }
     Eigen::Matrix<double, 1, 6> TCT_p;
-    TCT_p[0] = 1;
     geometry_msgs::PoseStamped point;
     for(double t = 0; t < tt_time; t += 0.1)
     {
-      for(int i=1; i<6; i++){
+      for(int i=0; i<6; i++){
         TCT_p[i] = std::pow(t, i);
       }
       auto pt  = TCT_p * PathCoe;
       point.pose.position.x = pt[0];
       point.pose.position.y = pt[1];
       point.pose.position.z = pt[2];
-      msgPath_.poses.push_back(point);
+      msgPath.poses.push_back(point);
     }
     for(int j=1; j<6; j++){
       TCT_p[j] = std::pow(tt_time, j);
@@ -118,9 +149,37 @@ private:
     point.pose.position.x = pt[0];
     point.pose.position.y = pt[1];
     point.pose.position.z = pt[2];
-    msgPath_.poses.push_back(point);
-    FLAG_pathChange_ = false;
+    msgPath.poses.push_back(point);
+    msgGlobalPath_.push(msgPath);
+    FLAG_globalChange_ = true;
   }
+
+  // 参数是直接拷贝进来的，应该还挺快的。
+  void getGlobalTrj(PolynomialTraj global_traj){
+    nav_msgs::Path msgPath;
+    msgPath.header.frame_id = "map";
+    msgPath.header.stamp = ros::Time::now();
+    Eigen::Matrix<double, 1, 6> TCT_p;
+    geometry_msgs::PoseStamped point;
+    for(int i = 0; i < global_traj.times.size(); i++){
+      for(double t = 0; t <= global_traj.times[i]; t += 0.1)
+      {
+        for(int j=0; j<6; j++){
+          TCT_p[j] = std::pow(t, j);
+        }
+        auto pt  = TCT_p * global_traj.coefs[i];
+        point.pose.position.x = pt[0];
+        point.pose.position.y = pt[1];
+        point.pose.position.z = pt[2];
+        msgPath.poses.push_back(point);
+      }
+    }
+    msgGlobalPath_.push(msgPath);
+    FLAG_globalChange_ = true;
+  }
+
+  // TODO: 
+  void getLocalTrj(){}
 
   void PoseCb(const nav_msgs::Odometry::ConstPtr& msg)
   {
@@ -139,17 +198,19 @@ private:
 private:
   ros::NodeHandle nh_;
   ros::Subscriber odomSub_;
-  ros::Subscriber coefPathSub_;
   ros::Publisher  visualPathPub_;
   ros::Publisher  odomMarkPub_;
   ros::Publisher  detectMarkPub_;
+  ros::Publisher  globalTrjPub_;
+  ros::Publisher  localTrjPub_;
 
   std::mutex pathInfoMut_;
   std::atomic_bool FLAG_running_;
-  std::atomic_bool FLAG_pathChange_;
+  std::atomic_bool FLAG_globalChange_;
+  std::atomic_bool FLAG_localChange_;
+  std::atomic_bool FLAG_initDetect_;
   std::thread* visulThread_ = nullptr;
   visualization_msgs::Marker msgMarkerOdom_;
   visualization_msgs::MarkerArray detectMarkers_;
-
-  nav_msgs::Path msgPath_;
+  std::queue<nav_msgs::Path> msgGlobalPath_, msgLocalPath_;
 };

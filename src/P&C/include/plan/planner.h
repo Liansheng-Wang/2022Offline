@@ -1,7 +1,7 @@
 #pragma once
 
-#include <common/base.h>
 
+#include <common/base.h>
 #include <mutex>
 #include <tuple>
 #include <vector>
@@ -57,6 +57,8 @@ public:
     PathCoe_ = Polynomial_ * constant_b;
   }
 
+
+
   State getPathPoint(double rr_t)  // real relative time 真实的相对时间
   {
     State pathPoint;
@@ -102,6 +104,9 @@ public:
   typedef std::unique_ptr<Planner> Ptr;
 
 private:
+  // 暂时的
+  PolynomialTraj localTraj_;
+  PolynomialTraj globalTraj_;
   Eigen::Matrix<double, 6, 6> Polynomial_;   // 归一化之后的求解矩阵
   Eigen::Matrix<double, 6, 3> PathCoe_;      // 归一化之后的路径系数
   Eigen::Matrix<double, 1, 6> TCT_p_;        // time coefficient table -> TCT

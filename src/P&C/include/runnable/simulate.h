@@ -33,12 +33,11 @@ namespace Simulate{
   {
     InitWayPoints();
     ros::NodeHandle nh;
-    auto positionPub_ = nh.advertise<geometry_msgs::Pose>("/test/points", 10);
     State curState, tarState;
-    Planner planner;
     VisualTool visualtool;
-    visualtool.setTargetMarker(waypoints, poses);
+    Planner planner;
     Actuator actuator;
+    visualtool.setTargetMarker(waypoints, poses);
     actuator.waitHomeSet();
     actuator.arm();
     actuator.setMode("OFFBOARD");

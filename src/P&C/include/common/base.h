@@ -65,11 +65,17 @@ public:
   void addSegment(Matrix6x3& coel, double time){
     coefs.push_back(coel);
     times.push_back(time);
+    num_seg += 1;
+    tt_t += time;
   }
 
   void setSeg(int segs){num_seg = segs;}
 
   void setTotalTime(double tt_time){tt_t = tt_time;}
+
+  double getPathLen(){
+    
+  }
 
   static PolynomialTraj minSnapTraj(const Eigen::MatrixXd &wps, const Eigen::Vector3d &start_vel,
                                     const Eigen::Vector3d &end_vel, const Eigen::Vector3d &start_acc,
@@ -77,12 +83,14 @@ public:
 
   static PolynomialTraj one_traj_gen(const State& start, const State& end, double totalTime);
 
+public:
+  std::vector<double> times;           // 自己多注意一些，不能修改这些数字
+  std::vector<Matrix6x3> coefs;
+
 private:
   int order;                           // 多项式阶数, 默认5阶吧 
   int num_seg;                         // 多项式轨迹的分段数量
   double tt_t;                         // 轨迹所用的总用时
-  std::vector<double> times;
-  std::vector<Matrix6x3> coefs;
 };
 
 
