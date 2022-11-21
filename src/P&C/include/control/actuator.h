@@ -38,7 +38,7 @@ enum ActionFSM
 class Actuator
 {
 public:
-  Actuator(): loopRate_(30), controlFSM_(ActionFSM::Init), FLAG_running_(true), FLAG_homeSet_(false)
+  Actuator():controlFSM_(ActionFSM::Init), FLAG_running_(true), FLAG_homeSet_(false)
   {
     stateSub_     = nh_.subscribe<mavros_msgs::State>("/mavros/state",                     1, &Actuator::StateCb, this, ros::TransportHints().tcpNoDelay());
     odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom",       1, &Actuator::PoseCb,  this, ros::TransportHints().tcpNoDelay());
@@ -97,6 +97,7 @@ private:
 
   void publishThread()
   {
+    ros::Rate loopRate = ros::Rate(30);
     while(ros::ok() && FLAG_running_)
     {
       switch (controlFSM_)
@@ -123,29 +124,31 @@ private:
       default:
         break;
       }
-      loopRate_.sleep();
+      loopRate.sleep();
     }
   }
 
 public:
   void waitHomeSet(){
+    ros::Rate loopRate = ros::Rate(30);
     while(ros::ok()){
       ros::spinOnce();
       if(uavState_.connected){
         break;
       }
-      loopRate_.sleep();
+      loopRate.sleep();
     }
     while(ros::ok()){
       ros::spinOnce();
       if(FLAG_homeSet_){
         break;
       }
-      loopRate_.sleep();
+      loopRate.sleep();
     }
   }
 
   void takeoff(double height){
+    ros::Rate loopRate = ros::Rate(30);
     ros::spinOnce();
     geometry_msgs::PoseStamped setpoint;
     setpoint.pose.position.x = uavPose_.pose.pose.position.x;
@@ -155,7 +158,7 @@ public:
     controlFSM_ = ActionFSM::Position;
     while(ros::ok() && abs(uavPose_.pose.pose.position.z - setpoint.pose.position.z) > 0.25){
       ros::spinOnce();
-      loopRate_.sleep();
+      loopRate.sleep();
     }
     ROS_INFO("\033[32m ---> Take off success ! \033[0m");
   }
@@ -195,6 +198,7 @@ public:
   }
 
   bool setMode(std::string modeName){
+    ros::Rate loopRate = ros::Rate(30);
     if(modeName == "OFFBOARD"){
       ros::spinOnce();
       geometry_msgs::PoseStamped setpoint;
@@ -206,7 +210,7 @@ public:
       for (int i = 100; ros::ok() && i > 0; --i) {
         positionPub_.publish(setpoint);
         ros::spinOnce();
-        loopRate_.sleep();
+        loopRate.sleep();
       }
     }
     ROS_INFO("\033[33m ---> Ready to set %s mode !\033[0m", modeName.c_str());
@@ -252,6 +256,26 @@ public:
     return motionState_;
   }
 
+  nav_msgs::Odometry getOdom(){
+    return uavPose_;
+  }
+
+  // ---------- 实机飞行的特殊 API--------------
+  void waitTakeoff(){
+    ros::Rate loopRate = ros::Rate(10);
+    geometry_msgs::PoseStamped setpoint;
+    setpoint.pose.position.x = uavPose_.pose.pose.position.x;
+    setpoint.pose.position.y = uavPose_.pose.pose.position.y;
+    setpoint.pose.position.z = uavPose_.pose.pose.position.z;
+    setPoint(setpoint);
+    while(ros::ok()){
+      ros::spinOnce();
+      if(uavState_.mode == "OFFBOARD")
+        return;
+      loopRate.sleep();
+    }
+  }
+
 
 public: 
   typedef std::unique_ptr<Actuator> Ptr;
@@ -269,7 +293,6 @@ private:
   ros::ServiceClient landClient_;
   ros::ServiceClient armingClient_;
   ros::ServiceClient modeClient_;
-  ros::Rate loopRate_;
   mavros_msgs::State uavState_;
   nav_msgs::Odometry uavPose_;
   State motionState_;
