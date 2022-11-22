@@ -42,6 +42,7 @@ public:
   {
     stateSub_     = nh_.subscribe<mavros_msgs::State>("/mavros/state",                     1, &Actuator::StateCb, this, ros::TransportHints().tcpNoDelay());
     odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom",       1, &Actuator::PoseCb,  this, ros::TransportHints().tcpNoDelay());
+    // odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/vision_pose/pose",          1, &Actuator::PoseCb,  this, ros::TransportHints().tcpNoDelay());
     accSub_       = nh_.subscribe<sensor_msgs::Imu>("/mavros/imu/data",                    1, &Actuator::IMUCb,   this, ros::TransportHints().tcpNoDelay());
     homeSub_      = nh_.subscribe<mavros_msgs::HomePosition>("/mavros/home_position/home", 1, &Actuator::setHomeGeoPointCB, this);
     positionPub_  = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local",    10);

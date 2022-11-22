@@ -54,13 +54,35 @@ public:
     order = 5;
     tt_t = 0;
     num_seg = 0;
+    start_time = ros::Time::now().toSec();
+    initConstant();
   }
   PolynomialTraj(int ord){
     order = ord;
     tt_t = 0;
     num_seg = 0;
+    start_time = ros::Time::now().toSec();
+    initConstant();
   }
   ~PolynomialTraj(){}
+
+  void initConstant(){
+    TCT_p_[0] = 1;
+    TCT_v_[0] = 0; TCT_v_[1] = 1;
+    TCT_a_[0] = 0; TCT_a_[0] = 0; TCT_a_[1] = 2;
+  }
+
+  void caluTime(double t){
+    for(int i=1; i<6; i++){
+      TCT_p_[i] = std::pow(t, i);
+    }
+    for(int i=2; i<6; i++){
+      TCT_v_[i] = i * TCT_p_[i-1];
+    }
+    for(int i=3; i<6; i++){
+      TCT_a_[i] = i * TCT_v_[i-1];
+    }
+  }
 
   void addSegment(Matrix6x3& coel, double time){
     coefs.push_back(coel);
@@ -73,8 +95,39 @@ public:
 
   void setTotalTime(double tt_time){tt_t = tt_time;}
 
-  double getPathLen(){
+  void setStartTime(){
+    start_time = ros::Time::now().toSec();
+  }
+
+  bool evaluate(double t){
+    if(t < start_time || t > start_time + tt_t){
+      return false;
+    }
+    double local_t = t - start_time;
     
+    // step1: 选找哪一段。然后确定相对时间。 
+    int index = 0;
+    for(; index < num_seg; index++){
+      if(local_t < times[index]){
+        break;
+      }
+      local_t - times[index];
+    }
+
+    caluTime(local_t);
+
+    globalState_.pt  = TCT_p_ * coefs[index];
+    globalState_.vel = TCT_v_ * coefs[index];
+    globalState_.acc = TCT_a_ * coefs[index];
+    globalState_.rpy[2] = atan2(globalState_.vel[1], globalState_.vel[0]);
+    return true;
+  }
+
+  double getPathLen(){
+    double dd = 0;
+
+
+    return dd;
   }
 
   static PolynomialTraj minSnapTraj(const Eigen::MatrixXd &wps, const Eigen::Vector3d &start_vel,
@@ -86,11 +139,19 @@ public:
 public:
   std::vector<double> times;           // 自己多注意一些，不能修改这些数字
   std::vector<Matrix6x3> coefs;
+  
+  // 这两个状态是让飞机跟随的点
+  State globalState_;
+  State loclaState_;
 
 private:
   int order;                           // 多项式阶数, 默认5阶吧 
   int num_seg;                         // 多项式轨迹的分段数量
   double tt_t;                         // 轨迹所用的总用时
+  double start_time;                   // 轨迹开始执行的时间
+  Eigen::Matrix<double, 1, 6> TCT_p_;  // time coefficient table -> TCT
+  Eigen::Matrix<double, 1, 6> TCT_v_;   
+  Eigen::Matrix<double, 1, 6> TCT_a_;
 };
 
 

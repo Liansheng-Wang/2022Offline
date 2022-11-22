@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   mavros
   mavros_msgs
   message_filters
+  cv_bridge
 )
 
 find_package(Eigen3 REQUIRED)

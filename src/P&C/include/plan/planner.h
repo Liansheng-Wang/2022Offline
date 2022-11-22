@@ -25,6 +25,55 @@ public:
     std::cout<< "\033[32m ---> Planner    closed ^_^ ! \033[0m" << std::endl;
   }
 
+public:
+  typedef std::unique_ptr<Planner> Ptr;
+  PolynomialTraj localTraj_;
+  PolynomialTraj globalTraj_;
+
+  // 如果只有起点和终点的话，就是一段，如果多段的话，targets 是中间的路点。
+  bool planGlobalTraj(State& curState, State& endState, std::vector<Eigen::Vector3d> targets, int multiSeg){
+    if(multiSeg > 1){
+      Eigen::MatrixXd wps(3, multiSeg+1);
+      Eigen::VectorXd times(multiSeg);
+      wps.col(0) = curState.pt;
+      for(int i = 1; i < targets.size(); i++)
+      {
+        wps.col(i) = targets[i-1];
+        times(i-1) = (wps.col(i) - wps.col(i-1)).norm() / UP::MaxVel;
+      }
+      wps.col(multiSeg) = endState.pt;
+      times(multiSeg-1) = (wps.col(multiSeg) - wps.col(multiSeg - 1)).norm() / UP::MaxVel;
+      globalTraj_ = PolynomialTraj::minSnapTraj(wps, curState.vel, endState.vel, 
+                    Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), times);
+
+    }else{
+      double distance = (curState.pt - endState.pt).norm();
+      double time = distance / UP::MaxVel;
+      globalTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
+    }
+    globalTraj_.setStartTime();
+    return true;
+  }
+
+  // 传入的参数 t 是全局的时间
+  State getGlobalPathPoint(double t){
+    globalTraj_.evaluate(t);
+    return globalTraj_.globalState_;
+  }
+
+  bool planLocalTraj(){
+
+
+    return true;
+  }
+
+
+  // State getLocalPathPoint(double t){
+
+    
+  // }
+
+
   void plan(const State& start, const State& end)
   {
     totalTime_ = (end.pt - start.pt).norm()   / UP::MaxVel + 
@@ -56,8 +105,6 @@ public:
 
     PathCoe_ = Polynomial_ * constant_b;
   }
-
-
 
   State getPathPoint(double rr_t)  // real relative time 真实的相对时间
   {
@@ -100,13 +147,7 @@ public:
     return totalTime_;
   }
 
-public:
-  typedef std::unique_ptr<Planner> Ptr;
-
 private:
-  // 暂时的
-  PolynomialTraj localTraj_;
-  PolynomialTraj globalTraj_;
   Eigen::Matrix<double, 6, 6> Polynomial_;   // 归一化之后的求解矩阵
   Eigen::Matrix<double, 6, 3> PathCoe_;      // 归一化之后的路径系数
   Eigen::Matrix<double, 1, 6> TCT_p_;        // time coefficient table -> TCT
@@ -116,16 +157,3 @@ private:
 };
 
 // Class Planner END ========================================================
-
-
-class LocalPlanner{
-public:
-  LocalPlanner(){
-
-  }
-
-
-
-
-
-};
