@@ -2,6 +2,7 @@
 
 
 #include <common/base.h>
+#include <cmath>
 #include <mutex>
 #include <tuple>
 #include <vector>
@@ -31,29 +32,72 @@ public:
   PolynomialTraj globalTraj_;
 
   // 如果只有起点和终点的话，就是一段，如果多段的话，targets 是中间的路点。
-  bool planGlobalTraj(State& curState, State& endState, std::vector<Eigen::Vector3d> targets, int multiSeg){
-    if(multiSeg > 1){
-      Eigen::MatrixXd wps(3, multiSeg+1);
-      Eigen::VectorXd times(multiSeg);
-      wps.col(0) = curState.pt;
-      for(int i = 1; i < targets.size(); i++)
-      {
-        wps.col(i) = targets[i-1];
-        times(i-1) = (wps.col(i) - wps.col(i-1)).norm() / UP::MaxVel;
-      }
-      wps.col(multiSeg) = endState.pt;
-      times(multiSeg-1) = (wps.col(multiSeg) - wps.col(multiSeg - 1)).norm() / UP::MaxVel;
-      globalTraj_ = PolynomialTraj::minSnapTraj(wps, curState.vel, endState.vel, 
-                    Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), times);
-
-    }else{
-      double distance = (curState.pt - endState.pt).norm();
-      double time = distance / UP::MaxVel;
-      globalTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
+  bool planGlobalTraj(const State& curState, const State& endState, const std::vector<Eigen::Vector3d>& waypoints){
+    std::vector<Eigen::Vector3d> points;
+    points.push_back(curState.pt);
+    for (size_t wp_i = 0; wp_i < waypoints.size(); wp_i++)
+    {
+      points.push_back(waypoints[wp_i]);
     }
+
+    double total_len = 0;
+    total_len += (curState.pt - waypoints[0]).norm();
+    for (size_t i = 0; i < waypoints.size() - 1; i++)
+    {
+      total_len += (waypoints[i + 1] - waypoints[i]).norm();
+    }
+
+    // 在全局轨迹点中插补一些新的点进来
+    std::vector<Eigen::Vector3d> inter_points;
+    double dist_thresh = std::max(total_len / 8, 4.0);
+    for (size_t i = 0; i < points.size() - 1; ++i)
+    {
+      inter_points.push_back(points.at(i));
+      double dist = (points.at(i + 1) - points.at(i)).norm();
+
+      if (dist > dist_thresh)
+      {
+        int id_num = floor(dist / dist_thresh) + 1;
+
+        for (int j = 1; j < id_num; ++j)
+        {
+          Eigen::Vector3d inter_pt =
+              points.at(i) * (1.0 - double(j) / id_num) + points.at(i + 1) * double(j) / id_num;
+          inter_points.push_back(inter_pt);
+        }
+      }
+    }
+
+    inter_points.push_back(points.back());
+
+    // 这一步按照 ego_planner 来的： 构建一个 全局位置矩阵。
+    int pt_num = inter_points.size();
+    Eigen::MatrixXd pos(3, pt_num);
+    for (int i = 0; i < pt_num; ++i)
+      pos.col(i) = inter_points[i];
+    
+    Eigen::Vector3d zero(0, 0, 0);
+    Eigen::VectorXd times(pt_num - 1);
+    for (int i = 0; i < pt_num - 1; ++i)
+    {
+      times(i) = (pos.col(i + 1) - pos.col(i)).norm() / (UP::MaxVel);
+    }
+
+    times(0) *= 2.0;
+    times(times.rows() - 1) *= 2.0;
+
+    PolynomialTraj gl_traj;
+    if (pos.cols() >= 3)
+      gl_traj = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times);
+    else if (pos.cols() == 2)
+      gl_traj = PolynomialTraj::one_traj_gen(curState, endState, times(0));
+    else
+      return false;
+    
     globalTraj_.setStartTime();
     return true;
   }
+
 
   // 传入的参数 t 是全局的时间
   State getGlobalPathPoint(double t){

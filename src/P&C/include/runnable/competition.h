@@ -6,6 +6,8 @@
 #include <control/actuator.h>
 #include <control/controller.h>
 #include <geometry_msgs/PoseArray.h>
+#include <visual/visualTools.h>
+// #include <plan_env/voxelmap.h>   FIXME: 这个文件暂时有问题
 
 #include <plan/planner.h>
 #include <Eigen/Core>
@@ -101,19 +103,18 @@ namespace Competition{
     ros::Subscriber detectSub = nh.subscribe<geometry_msgs::PoseArray>("/mavros/local_position/odom", 1, &DetectCb);
     
     /* Step1: 等待手动切换 OFFBOARD 起飞！ */ 
-    Actuator actuator; Planner planner;
+    Planner planner;
+    Actuator actuator;
+    VisualTool visualtool;
     Controller controller;
     State uavPose, endState;
-    
     std::vector<Eigen::Vector3d> targets;
     int segments = 1;
     controller.init(actuator);     // 控制器传入执行器指针。可以设置执行器指令。
     actuator.waitTakeoff();
     actuator.takeoff(1.5);
 
-    /* Step2：获取状态准备规划  */   // 一个圆环一个圆环写，比较容易调试。
-    
-    // MissionIndex_ = 0； 1 号任务点
+    /* Step2：获取状态准备规划  */
     while(ros::ok()){
       ros::spinOnce();
       transDetect();
@@ -123,7 +124,6 @@ namespace Competition{
       endState.vel = endState.vel * UP::MaxVel;
       endState.acc = Eigen::Vector3d::Zero();
       targets.clear();
-      segments = 2;
       if(Flag_Detect_){
         targets.push_back(GlobalDetct_);
       }else{
@@ -131,8 +131,8 @@ namespace Competition{
       }
       
       if(isFree[MissionIndex_]){
-        // TODO: 这个得分情况处理，如果检测到了，怎么样。没检测到，怎么样？
-        planner.planGlobalTraj(uavPose, endState, targets, segments);
+
+        planner.planGlobalTraj(uavPose, endState, targets);
       }
       
 
@@ -152,9 +152,5 @@ namespace Competition{
 
 
 
-
-
-
-    
-  }
+  }  // run() END
 };
