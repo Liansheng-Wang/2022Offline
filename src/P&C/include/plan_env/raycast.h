@@ -3,6 +3,7 @@
 #define RAYCAST_H_
 
 
+#include <iostream>
 #include <Eigen/Eigen>
 #include <vector>
 

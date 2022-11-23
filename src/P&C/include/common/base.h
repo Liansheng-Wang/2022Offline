@@ -14,8 +14,8 @@ typedef Eigen::Matrix<double, 6, 3> Matrix6x3;
 
 /* 无人机本身的物理参数 */
 namespace UAVparam{
-  double MaxVel = 1.0;
-  double MaxAcc = 1.0;
+  double MaxVel = 2.0;
+  double MaxAcc = 3.0;
   double MaxYawRate = M_PI;
 
   void LoadFromYaml(ros::NodeHandle& nh)
@@ -85,11 +85,13 @@ public:
   }
 
   void addSegment(Matrix6x3& coel, double time){
-    coefs.push_back(coel);
-    times.push_back(time);
+    coefs_.push_back(coel);
+    times_.push_back(time);
     num_seg += 1;
     tt_t += time;
   }
+
+  double getTotalTime(){return tt_t;}
 
   void setSeg(int segs){num_seg = segs;}
 
@@ -99,47 +101,79 @@ public:
     start_time = ros::Time::now().toSec();
   }
 
+  // 这个时间 t 是相对时间 t 。 
+  Eigen::Vector3d getPosition(double t){
+    if(t < 0 || t > tt_t){
+      ROS_ERROR("Time error");
+      return;
+    }
+
+    Eigen::Vector3d position;
+
+
+
+
+  }
+
   bool evaluate(double t){
     if(t < start_time || t > start_time + tt_t){
+      ROS_ERROR("Time error");
       return false;
     }
+
     double local_t = t - start_time;
-    
+  
     // step1: 选找哪一段。然后确定相对时间。 
     int index = 0;
     for(; index < num_seg; index++){
-      if(local_t < times[index]){
+      if(local_t < times_[index]){
         break;
       }
-      local_t - times[index];
+      local_t -= times_[index];
     }
 
     caluTime(local_t);
 
-    globalState_.pt  = TCT_p_ * coefs[index];
-    globalState_.vel = TCT_v_ * coefs[index];
-    globalState_.acc = TCT_a_ * coefs[index];
+    globalState_.pt  = TCT_p_ * coefs_[index];
+    globalState_.vel = TCT_v_ * coefs_[index];
+    globalState_.acc = TCT_a_ * coefs_[index];
     globalState_.rpy[2] = atan2(globalState_.vel[1], globalState_.vel[0]);
     return true;
   }
 
-  double getPathLen(){
-    double dd = 0;
-
-
-    return dd;
+  double getPathLen(int index){
+    double dis = 0;
+    Eigen::Vector3d p1, p2;
+    Eigen::Matrix<double, 1, 6> TTC_p;
+    TTC_p[0] = 1;
+    for(int i=1; i<6; i++){
+      TTC_p[i] = std::pow(0, i);
+    }
+    p1 = TTC_p * coefs_[index];
+    // 这一步可以多核加速一下。 // 根据电脑性能来选择吧步长吧
+    for(double t = 0.02; t < times_[index] - 0.02; t += 0.02){
+      for(int i=1; i<6; i++){
+        TTC_p[i] = std::pow(t, i);
+      }
+      p2 = TTC_p * coefs_[index];
+      dis += (p2 - p1).norm();
+      p1 = p2;
+    }
+    return dis;
   }
 
-  static PolynomialTraj minSnapTraj(const Eigen::MatrixXd &wps, const Eigen::Vector3d &start_vel,
-                                    const Eigen::Vector3d &end_vel, const Eigen::Vector3d &start_acc,
-                                    const Eigen::Vector3d &end_acc, const Eigen::VectorXd &Time);
+  static PolynomialTraj minSnapTraj(const Eigen::MatrixXd &wps,      const Eigen::Vector3d &start_vel,
+                                    const Eigen::Vector3d &end_vel,  const Eigen::Vector3d &start_acc,
+                                    const Eigen::Vector3d &end_acc,  const Eigen::VectorXd &Time,
+                                    const std::vector<double>& poses);
 
   static PolynomialTraj one_traj_gen(const State& start, const State& end, double totalTime);
 
 public:
-  std::vector<double> times;           // 自己多注意一些，不能修改这些数字
-  std::vector<Matrix6x3> coefs;
-  
+  std::vector<double> times_;           // 自己多注意一些，不能修改这些数字
+  std::vector<Matrix6x3> coefs_;
+  double last_progress_time_;           // 这个是处理的相对时间。 TODO: 
+
   // 这两个状态是让飞机跟随的点
   State globalState_;
   State loclaState_;
@@ -156,9 +190,10 @@ private:
 
 
 PolynomialTraj PolynomialTraj::minSnapTraj(
-  const Eigen::MatrixXd &wps,     const Eigen::Vector3d &start_vel,
-  const Eigen::Vector3d &end_vel, const Eigen::Vector3d &start_acc,
-  const Eigen::Vector3d &end_acc, const Eigen::VectorXd &Time)
+  const Eigen::MatrixXd &wps,      const Eigen::Vector3d &start_vel,
+  const Eigen::Vector3d &end_vel,  const Eigen::Vector3d &start_acc,
+  const Eigen::Vector3d &end_acc,  const Eigen::VectorXd &Time,
+  const std::vector<double>& poses)
 {
   int seg_num = Time.size();
   // 每行包含了所有的 x,y,z 系数
@@ -201,6 +236,18 @@ PolynomialTraj PolynomialTraj::minSnapTraj(
     Dy(k * 6 + 1) = wps(1, k + 1);
     Dz(k * 6) = wps(2, k);
     Dz(k * 6 + 1) = wps(2, k + 1);
+
+    if(poses.at(k) > -200){
+      // 中间点的速度应该是连续的
+      double sin_pose = sin(poses.at(k) / 180 * M_PI);
+      double cos_pose = cos(poses.at(k) / 180 * M_PI);
+      Dx(k * 6 + 2) = UAVparam::MaxVel * cos_pose;            
+      Dx(k * 6 + 3) = Dx(k * 6 + 2);
+      Dy(k * 6 + 2) = UAVparam::MaxVel * sin_pose;
+      Dy(k * 6 + 3) = Dy(k * 6 + 2);
+      Dz(k * 6 + 2) = 0;
+      Dz(k * 6 + 3) = 0;
+    }
 
     /* 速度方向的约束条件 */
     /***
@@ -360,31 +407,18 @@ PolynomialTraj PolynomialTraj::minSnapTraj(
   Py = (A.inverse() * Ct) * Dy1;
   Pz = (A.inverse() * Ct) * Dz1;
 
-  for (int i = 0; i < seg_num; i++)
-  {
-    poly_coeff.block(i, 0, 1, 6) = Px.segment(i * 6, 6).transpose();
-    poly_coeff.block(i, 6, 1, 6) = Py.segment(i * 6, 6).transpose();
-    poly_coeff.block(i, 12, 1, 6) = Pz.segment(i * 6, 6).transpose();
-  }
 
   /* ---------- use polynomials ---------- */
   PolynomialTraj poly_traj;
-  for (int i = 0; i < poly_coeff.rows(); ++i)
+  for (int i = 0; i < seg_num; i++)
   {
     Matrix6x3 coel;
-    for(int j = 0; j < 3; j++)
-    {
-      for (int k = 0; k < 6; ++k)
-      {
-        coel.block(0, 0, 6, 1) = poly_coeff.block(i, 0, 1, 6).transpose();
-        coel.block(0, 1, 6, 1) = poly_coeff.block(i, k + 6, 1, 6).transpose();
-        coel.block(0, 2, 6, 1) = poly_coeff.block(i, k + 12, 1, 6).transpose();
-      }
-    }
+    coel.col(0) = Px.segment(i * 6, 6).transpose();
+    coel.col(1) = Py.segment(i * 6, 6).transpose();
+    coel.col(2) = Pz.segment(i * 6, 6).transpose();
     double ts = Time(i);
     poly_traj.addSegment(coel, ts);
   }
-
   return poly_traj;
 }
 

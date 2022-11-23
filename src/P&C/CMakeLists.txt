@@ -22,7 +22,7 @@ find_package(PCL    REQUIRED)
 
 catkin_package(
  INCLUDE_DIRS include
- CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs nav_msgs
+ CATKIN_DEPENDS roscpp rospy std_msgs nav_msgs geometry_msgs
 )
 
 
@@ -41,4 +41,4 @@ include_directories(
 link_directories(${PCL_LIBRARY_DIRS})
 
 add_executable(auto_fly src/autoFly.cpp)
-target_link_libraries(auto_fly ${catkin_LIBRARIES} ${PCL_LIBRARY_DIRS})
+target_link_libraries(auto_fly ${catkin_LIBRARIES} ${PCL_LIBRARIES})

@@ -14,15 +14,15 @@ int main(int argc, char** argv)
   int useSim;
   nh.param<int>("/env/use_sim", useSim, 1);
   if(useSim == 0){
-    std::cout << "\033[32m ---> Competition Running!" << std::endl;
+    std::cout << "\033[32m ---> Competition Running !" << std::endl;
     Competition::run(nh);
   }
   else if(useSim == 1){
-    std::cout << "\033[32m ---> Simulate Running!" << std::endl;
+    std::cout << "\033[32m ---> Simulate Running !" << std::endl;
     Simulate::run();
   }
   else{
-    ROS_ERROR("Choose a errror param for env");
+    std::cout << "\033[31m ---> Choose a errror param for env !" << std::endl;
   }
   return 0;
 }
