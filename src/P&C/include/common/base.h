@@ -89,6 +89,13 @@ public:
     times_.push_back(time);
     num_seg += 1;
     tt_t += time;
+
+    // 每次都在刷新最后一个点
+    Eigen::Matrix<double, 1, 6> TTC_p;
+    for(int i = 0; i < 6; i++){
+      TTC_p[i] = std::pow(time, i);
+    }
+    end_point = TTC_p * coel;
   }
 
   double getTotalTime(){return tt_t;}
@@ -112,7 +119,24 @@ public:
 
 
 
+    return position;
+  }
 
+  // 这个时间 t 是相对时间 t 。
+  Eigen::Vector3d getVelocity(double t){
+    if(t < 0 || t > tt_t){
+      ROS_ERROR("Time error");
+      return;
+    }
+    Eigen::Vector3d velocity;
+
+
+
+    return velocity;
+  }
+
+  Eigen::Vector3d getEndPoint(){
+    return end_point;
   }
 
   bool evaluate(double t){
@@ -145,8 +169,7 @@ public:
     double dis = 0;
     Eigen::Vector3d p1, p2;
     Eigen::Matrix<double, 1, 6> TTC_p;
-    TTC_p[0] = 1;
-    for(int i=1; i<6; i++){
+    for(int i = 0; i < 6; i++){
       TTC_p[i] = std::pow(0, i);
     }
     p1 = TTC_p * coefs_[index];
@@ -183,6 +206,7 @@ private:
   int num_seg;                         // 多项式轨迹的分段数量
   double tt_t;                         // 轨迹所用的总用时
   double start_time;                   // 轨迹开始执行的时间
+  Eigen::Vector3d end_point;
   Eigen::Matrix<double, 1, 6> TCT_p_;  // time coefficient table -> TCT
   Eigen::Matrix<double, 1, 6> TCT_v_;   
   Eigen::Matrix<double, 1, 6> TCT_a_;

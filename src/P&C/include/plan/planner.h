@@ -119,6 +119,7 @@ public:
       return false;
 
     globalTraj_.setStartTime();
+    globalTraj_.last_progress_time_ = 0;
     return true;
   }
 
@@ -129,21 +130,19 @@ public:
   }
 
   State getLocalTarget(State& uavState){
+    State localState;
     double t;
-    double planning_horizen = 5.0;   // 局部滑窗的长度
+    double planning_horizen = 7.0;   // 局部滑窗的长度
     double t_step = planning_horizen / 20 / UP::MaxVel;
     double dist_min = 9999, dist_min_t = 0.0;
     for (t = globalTraj_.last_progress_time_; t < globalTraj_.getTotalTime(); t += t_step)
     {
       Eigen::Vector3d pos_t = globalTraj_.getPosition(t);
-      double dist = (pos_t - start_pt_).norm();
+      double dist = (pos_t - uavState.pt).norm();
 
-      if (t < planner_manager_->global_data_.last_progress_time_ + 1e-5 && dist > planning_horizen_)
+      if (t < globalTraj_.last_progress_time_ + 1e-5 && dist > planning_horizen)
       {
         // todo
-        ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
-        ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
-        ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
         ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
         ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
         return;
@@ -153,29 +152,27 @@ public:
         dist_min = dist;
         dist_min_t = t;
       }
-      if (dist >= planning_horizen_)
+      if (dist >= planning_horizen)
       {
-        local_target_pt_ = pos_t;
-        planner_manager_->global_data_.last_progress_time_ = dist_min_t;
+        localState.pt = pos_t;
+        globalTraj_.last_progress_time_ = dist_min_t;
         break;
       }
     }
-    if (t > planner_manager_->global_data_.global_duration_) // Last global point
+    if (t > globalTraj_.getTotalTime()) // Last global point
     {
-      local_target_pt_ = end_pt_;
+      localState.pt = globalTraj_.getEndPoint();  // TODO: 获取 全局轨迹的最后一个点。
     }
 
-    if ((end_pt_ - local_target_pt_).norm() < (planner_manager_->pp_.max_vel_ * planner_manager_->pp_.max_vel_) / (2 * planner_manager_->pp_.max_acc_))
+    if ((globalTraj_.getEndPoint() - localState.pt).norm() < (UP::MaxVel * UP::MaxVel) / (2 * UP::MaxAcc))
     {
-      // local_target_vel_ = (end_pt_ - init_pt_).normalized() * planner_manager_->pp_.max_vel_ * (( end_pt_ - local_target_pt_ ).norm() / ((planner_manager_->pp_.max_vel_*planner_manager_->pp_.max_vel_)/(2*planner_manager_->pp_.max_acc_)));
-      // cout << "A" << endl;
-      local_target_vel_ = Eigen::Vector3d::Zero();
+      localState.vel = Eigen::Vector3d::Zero();
     }
     else
     {
-      local_target_vel_ = planner_manager_->global_data_.getVelocity(t);
-      // cout << "AA" << endl;
+      localState.vel = globalTraj_.getVelocity(t);
     }
+    return localState;
   }
 
   double getGlobalTotalTime(){
