@@ -272,6 +272,20 @@ public:
     return true;
   }
   
+
+  // 单端的局部轨迹多项式
+  bool planLocalTraj(const State& curState, const State& endState){
+    double time = (curState.pt  - endState.pt).norm()  / UP::MaxVel + 
+                  (curState.vel - endState.vel).norm() / UP::MaxAcc;
+    localTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
+
+    // 时间重新分配一下：
+    double dis = localTraj_.getPathLen(0);
+    time = dis / UP::MaxVel + (curState.vel - endState.vel).norm() / UP::MaxAcc;
+    localTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
+    localTraj_.last_progress_time_ = 0;
+    localTraj_.setStartTime();
+  }
 };
 
 // Class Planner END ========================================================

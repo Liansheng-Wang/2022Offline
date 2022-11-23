@@ -15,7 +15,8 @@ int main(int argc, char** argv)
   nh.param<int>("/env/use_sim", useSim, 1);
   if(useSim == 0){
     std::cout << "\033[32m ---> Competition Running !" << std::endl;
-    Competition::run(nh);
+    Competition::CompetitionFSM FSMRunnable(nh);
+    FSMRunnable.run();
   }
   else if(useSim == 1){
     std::cout << "\033[32m ---> Simulate Running !" << std::endl;
