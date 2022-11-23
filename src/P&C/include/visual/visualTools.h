@@ -120,6 +120,11 @@ public:
     FLAG_globalChange_ = true;
   }
 
+  void setLocalTrj(const PolynomialTraj& loca_traj){
+    localTraj_ = loca_traj;
+    FLAG_localChange_ = true;
+  }
+
   // void setGlobalTrj(double& totalTime, Eigen::Matrix<double, 6, 3>& PathCoe_){
   //   nav_msgs::Path msgPath;
   //   msgPath.header.frame_id = "map";
@@ -192,6 +197,7 @@ private:
         FLAG_globalChange_ = false;
       }
       if(FLAG_localChange_){
+        caluLocalPath();
         FLAG_localChange_ = false;
       }
 
@@ -227,8 +233,27 @@ private:
     msgGlobalPath_ = msgPath;
   }
 
-  // TODO: 
-  void setLocalTrj(){}
+  void caluLocalPath(){
+    nav_msgs::Path msgPath;
+    msgPath.header.frame_id = "map";
+    msgPath.header.stamp = ros::Time::now();
+    Eigen::Matrix<double, 1, 6> TCT_p;
+    geometry_msgs::PoseStamped point;
+    for(int i = 0; i < localTraj_.times_.size(); i++){
+      for(double t = 0; t <= localTraj_.times_[i]; t += 0.1)
+      {
+        for(int j=0; j<6; j++){
+          TCT_p[j] = std::pow(t, j);
+        }
+        auto pt  = TCT_p * localTraj_.coefs_[i];
+        point.pose.position.x = pt[0];
+        point.pose.position.y = pt[1];
+        point.pose.position.z = pt[2];
+        msgPath.poses.push_back(point);
+      }
+    }
+    msgLocalPath_ = msgPath;
+  }
 
   void PoseCb(const nav_msgs::Odometry::ConstPtr& msg)
   {
@@ -263,6 +288,7 @@ private:
   visualization_msgs::MarkerArray detectMarkers_;
   nav_msgs::Path msgGlobalPath_, msgLocalPath_;
 
-  PolynomialTraj globalTraj_; 
+  PolynomialTraj globalTraj_;
+  PolynomialTraj localTraj_; 
 
 };

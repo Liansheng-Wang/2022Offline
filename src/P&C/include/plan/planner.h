@@ -30,7 +30,7 @@ public:
   PolynomialTraj globalTraj_;
 
   bool planGlobalTraj(const State& curState, const State& endState, 
-    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses)
+    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses, bool global = true)
   {
     std::vector<double> posesfull;
     std::vector<Eigen::Vector3d> points;
@@ -93,18 +93,18 @@ public:
     times(0) += 2 * UP::MaxVel / UP::MaxAcc;
     times(times.rows() - 1) += 2 * UP::MaxVel / UP::MaxAcc;
 
+    PolynomialTraj ployTraj;
     if (pos.cols() >= 3)
-      globalTraj_ = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times, posesfull);
+      ployTraj = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times, posesfull);
     else if (pos.cols() == 2)
-      globalTraj_ = PolynomialTraj::one_traj_gen(curState, endState, times(0));
+      ployTraj = PolynomialTraj::one_traj_gen(curState, endState, times(0));
     else
       return false;
     
     // 重新分配一下时间：
-    std::cout << std::endl << std::endl;
     for (int i = 0; i < pt_num - 1; ++i)
     {
-      double dis = globalTraj_.getPathLen(i);
+      double dis = ployTraj.getPathLen(i);
       times(i) = dis / (UP::MaxVel);
       // std::cout << i  << "  dis:  "<< dis << "  time:  " << times(i) << std::endl;
     }
@@ -112,14 +112,17 @@ public:
     times(times.rows() - 1) += 2 * UP::MaxVel / UP::MaxAcc;
 
     if (pos.cols() >= 3)
-      globalTraj_ = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times, posesfull);
+      ployTraj = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times, posesfull);
     else if (pos.cols() == 2)
-      globalTraj_ = PolynomialTraj::one_traj_gen(curState, endState, times(0));
+      ployTraj = PolynomialTraj::one_traj_gen(curState, endState, times(0));
     else
       return false;
 
-    globalTraj_.setStartTime();
-    globalTraj_.last_progress_time_ = 0;
+    ployTraj.setStartTime();
+    ployTraj.last_progress_time_ = 0;
+
+    globalTraj_ = ployTraj;
+
     return true;
   }
 
@@ -129,11 +132,16 @@ public:
     return globalTraj_.globalState_;
   }
 
+  State getLocalPathPoint(double t){
+    localTraj_.evaluate(t);
+    return localTraj_.globalState_;
+  }
+
   State getLocalTarget(State& uavState){
     State localState;
     double t;
     double planning_horizen = 7.0;   // 局部滑窗的长度
-    double t_step = planning_horizen / 20 / UP::MaxVel;
+    double t_step = planning_horizen / 30 / UP::MaxVel;  // 这个数字大概是 0.1s
     double dist_min = 9999, dist_min_t = 0.0;
     for (t = globalTraj_.last_progress_time_; t < globalTraj_.getTotalTime(); t += t_step)
     {
@@ -145,7 +153,7 @@ public:
         // todo
         ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
         ROS_ERROR("last_progress_time_ ERROR !!!!!!!!!");
-        return;
+        return localState;  // FIXME: 直接这样的话，这里肯定是有问题的。
       }
       if (dist < dist_min)
       {
@@ -159,9 +167,10 @@ public:
         break;
       }
     }
-    if (t > globalTraj_.getTotalTime()) // Last global point
+
+    if (t > globalTraj_.getTotalTime())     // Last global point
     {
-      localState.pt = globalTraj_.getEndPoint();  // TODO: 获取 全局轨迹的最后一个点。
+      localState.pt = globalTraj_.getEndPoint();
     }
 
     if ((globalTraj_.getEndPoint() - localState.pt).norm() < (UP::MaxVel * UP::MaxVel) / (2 * UP::MaxAcc))
@@ -179,18 +188,90 @@ public:
     return globalTraj_.getTotalTime();
   }
 
-  bool planLocalTraj(){
+  bool planLocalTraj(const State& curState, const State& endState, 
+    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses){
+
+    std::vector<double> posesfull;
+    std::vector<Eigen::Vector3d> points;
+    points.push_back(curState.pt);
+    for (size_t wp_i = 0; wp_i < waypoints.size(); wp_i++)
+    {
+      points.push_back(waypoints[wp_i]);
+    }
+
+    double total_len = 0;
+    total_len += (curState.pt - waypoints[0]).norm();
+    for (size_t i = 0; i < waypoints.size() - 1; i++)
+    {
+      total_len += (waypoints[i + 1] - waypoints[i]).norm();
+    }
+
+    std::vector<Eigen::Vector3d> inter_points;
+    double dist_thresh = std::max(total_len / 8, 4.0);
+    for (size_t i = 0; i < points.size() - 1; ++i)
+    {
+      inter_points.push_back(points.at(i));
+      posesfull.push_back(poses.at(i));
+      double dist = (points.at(i + 1) - points.at(i)).norm();
+
+      if (dist > dist_thresh)
+      {
+        int id_num = floor(dist / dist_thresh) + 1;
+
+        for (int j = 1; j < id_num; ++j)
+        {
+          Eigen::Vector3d inter_pt =
+              points.at(i) * (1.0 - double(j) / id_num) + points.at(i + 1) * double(j) / id_num;
+          inter_points.push_back(inter_pt);
+          posesfull.push_back(-404); 
+        }
+      }
+    }
+
+    inter_points.push_back(points.back());
+    posesfull.push_back(poses.back());
+
+    int pt_num = inter_points.size();
+    Eigen::MatrixXd pos(3, pt_num);
+    for (int i = 0; i < pt_num; ++i)
+      pos.col(i) = inter_points[i];
     
+    Eigen::Vector3d zero(0, 0, 0);
+    Eigen::VectorXd times(pt_num - 1);
+    for (int i = 0; i < pt_num - 1; ++i)
+    {
+      times(i) = (pos.col(i + 1) - pos.col(i)).norm() / (UP::MaxVel);
+    }
+
+    PolynomialTraj ployTraj;
+    if (pos.cols() >= 3)
+      ployTraj = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times, posesfull);
+    else if (pos.cols() == 2)
+      ployTraj = PolynomialTraj::one_traj_gen(curState, endState, times(0));
+    else
+      return false;
+
+    for (int i = 0; i < pt_num - 1; ++i)
+    {
+      double dis = ployTraj.getPathLen(i);
+      times(i) = dis / (UP::MaxVel);
+    }
+
+    if (pos.cols() >= 3)
+      ployTraj = PolynomialTraj::minSnapTraj(pos, curState.vel, endState.vel, curState.acc, endState.acc, times, posesfull);
+    else if (pos.cols() == 2)
+      ployTraj = PolynomialTraj::one_traj_gen(curState, endState, times(0));
+    else
+      return false;
+
+    ployTraj.setStartTime();
+    ployTraj.last_progress_time_ = 0;
+
+    localTraj_ = ployTraj;
 
     return true;
   }
-
-  // TODO:
-  // State getLocalPathPoint(double t){
-
-    
-  // }
-
+  
 };
 
 // Class Planner END ========================================================

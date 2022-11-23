@@ -108,27 +108,40 @@ public:
     start_time = ros::Time::now().toSec();
   }
 
+  // TODO: 下面两个：
   // 这个时间 t 是相对时间 t 。 
   Eigen::Vector3d getPosition(double t){
+    Eigen::Vector3d position;
     if(t < 0 || t > tt_t){
       ROS_ERROR("Time error");
-      return;
+      return position;
+    }
+    // step1: 选找哪一段。然后确定相对时间。 
+    int index = 0;
+    for(; index < num_seg; index++){
+      if(t < times_[index]){
+        break;
+      }
+      t -= times_[index];
     }
 
-    Eigen::Vector3d position;
-
-
-
+    // step2: 计算位置系数
+    Eigen::Matrix<double, 1, 6> TTC_p;
+    for(int i = 0; i<6; i++){
+      TTC_p[i] = std::pow(t, i);
+    }
+    position = TTC_p * coefs_[index];
     return position;
   }
 
   // 这个时间 t 是相对时间 t 。
   Eigen::Vector3d getVelocity(double t){
+    Eigen::Vector3d velocity;
     if(t < 0 || t > tt_t){
       ROS_ERROR("Time error");
-      return;
+      return velocity;
     }
-    Eigen::Vector3d velocity;
+    
 
 
 
@@ -136,7 +149,7 @@ public:
   }
 
   Eigen::Vector3d getEndPoint(){
-    return end_point;
+    return end_point;  // 末尾点是在规划全局轨迹的时候，每加新的一段 addSegment()的时候就会更新这个值
   }
 
   bool evaluate(double t){
@@ -162,6 +175,9 @@ public:
     globalState_.vel = TCT_v_ * coefs_[index];
     globalState_.acc = TCT_a_ * coefs_[index];
     globalState_.rpy[2] = atan2(globalState_.vel[1], globalState_.vel[0]);
+
+    // 更新一下最后采点的比例时间
+    last_progress_time_ = local_t;  
     return true;
   }
 
@@ -199,7 +215,7 @@ public:
 
   // 这两个状态是让飞机跟随的点
   State globalState_;
-  State loclaState_;
+  State loclaState_;    // 这个暂时没有用上！
 
 private:
   int order;                           // 多项式阶数, 默认5阶吧 

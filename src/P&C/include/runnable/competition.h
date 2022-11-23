@@ -21,7 +21,7 @@ namespace Competition{
   std::vector<bool>   isFree;   // 是否需要避障
   std::vector<double> poses;    // 圆环的点
   std::vector<int>    types;    // 0 红， 1 蓝， 2 墙， 3 半圆， 4插补点
-  std::vector<Eigen::Vector3d> waypoints;
+  std::vector<Eigen::Vector3d> waypoints_;
   Eigen::Vector3d bias;         // 这个是起飞点的问题造成一个整体偏置
 
   // 视觉检测的部分
@@ -36,36 +36,36 @@ namespace Competition{
   void InitWayPoints()
   {
     // poses 中小于 -200 的是不约束，该点速度方向的点
-    waypoints.push_back({4.0,    0.0,  1.5}); poses.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 1 号环         0
-    waypoints.push_back({9.0,   -0.4,  1.8}); poses.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 2 号环         1
-    waypoints.push_back({14.285,-1.18, 1.2}); poses.push_back(0);     isFree.push_back(true);  types.push_back(2);  // 第一个墙面      2
-    waypoints.push_back({22.8,  -0.8,  1.5}); poses.push_back(20);    isFree.push_back(false); types.push_back(0);  // 11 号环        3
-    // waypoints.push_back({24.4,   2.6,  1.5}); poses.push_back(90);  isFree.push_back(true); types.push_back(0);   // 12-1 号环     4 
-    waypoints.push_back({27.90,  2.8,  1.5}); poses.push_back(90);    isFree.push_back(true);  types.push_back(0);  // 12-2 号环      4
-    waypoints.push_back({22.80,  6.54, 1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 13 号环        5
-    waypoints.push_back({17.72,  6.05, 1.35});poses.push_back(-201);  isFree.push_back(false); types.push_back(4);  // 插补一个避障的点 6
-    waypoints.push_back({14.285, 5.94, 1.2}); poses.push_back(180);   isFree.push_back(false); types.push_back(2);  // 第二个墙面      7
-    waypoints.push_back({9.0,    5.75, 1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 8 号环动态      8
-    waypoints.push_back({3.9,    4.6,  1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 9 号环         9   
-    waypoints.push_back({-1.0,   4.6,  1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(3);  // 10 号异型环    10
-    waypoints.push_back({-1.9,   4.6,  1.5}); poses.push_back(-201);  isFree.push_back(true);  types.push_back(4);  // 降落点         11
+    waypoints_.push_back({4.0,    0.0,  1.5}); poses.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 1 号环         0
+    waypoints_.push_back({9.0,   -0.4,  1.8}); poses.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 2 号环         1
+    waypoints_.push_back({14.285,-1.18, 1.2}); poses.push_back(0);     isFree.push_back(true);  types.push_back(2);  // 第一个墙面      2
+    waypoints_.push_back({22.8,  -0.8,  1.5}); poses.push_back(20);    isFree.push_back(false); types.push_back(0);  // 11 号环        3
+    // waypoints_.push_back({24.4,   2.6,  1.5}); poses.push_back(90);  isFree.push_back(true); types.push_back(0);   // 12-1 号环     4 
+    waypoints_.push_back({27.90,  2.8,  1.5}); poses.push_back(90);    isFree.push_back(true);  types.push_back(0);  // 12-2 号环      4
+    waypoints_.push_back({22.80,  6.54, 1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 13 号环        5
+    waypoints_.push_back({17.72,  6.05, 1.35});poses.push_back(-404);  isFree.push_back(false); types.push_back(4);  // 插补一个避障的点 6
+    waypoints_.push_back({14.285, 5.94, 1.2}); poses.push_back(180);   isFree.push_back(false); types.push_back(2);  // 第二个墙面      7
+    waypoints_.push_back({9.0,    5.75, 1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 8 号环动态      8
+    waypoints_.push_back({3.9,    4.6,  1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 9 号环         9   
+    waypoints_.push_back({-1.0,   4.6,  1.5}); poses.push_back(180);   isFree.push_back(true);  types.push_back(3);  // 10 号异型环    10
+    waypoints_.push_back({-1.9,   4.6,  1.5}); poses.push_back(-404);  isFree.push_back(true);  types.push_back(4);  // 降落点         11
     // 因为起飞位置造成的 bias, 需要现场修正呢。
     bias << 0.45, 0, -0.36;
-    for(int i = 0; i < waypoints.size(); i++){
-      waypoints[i] += bias;
+    for(int i = 0; i < waypoints_.size(); i++){
+      waypoints_[i] += bias;
     }
-    waypoints.shrink_to_fit(); poses.shrink_to_fit(); 
+    waypoints_.shrink_to_fit(); poses.shrink_to_fit(); 
     isFree.shrink_to_fit();    types.shrink_to_fit();
-    MissionNums_ = waypoints.size();
+    MissionNums_ = waypoints_.size();
   }
 
   // 最大似然。暂时没有用到，但是应该要用的。
   int maxLikelihood(Eigen::Vector3d point){
     int index = 0;
-    double min_dis = (waypoints[index] - point).norm();
-    for(int i = 1; i < waypoints.size(); i++)
+    double min_dis = (waypoints_[index] - point).norm();
+    for(int i = 1; i < waypoints_.size(); i++)
     {
-      double dis = (waypoints[i] - point).norm();
+      double dis = (waypoints_[i] - point).norm();
       if(dis < min_dis){
         min_dis = dis;
         index = i;
@@ -75,9 +75,19 @@ namespace Competition{
   }
 
   // 借用了全局定位的 index
-  bool isCross(State& uavState, double thresh){
-    Eigen::Vector3d pt = uavState.pt;
-    return (pt - MissionPoint_).norm() < thresh;
+  bool isCross(State& uavState, double thresh = 0.15){
+    // 本来应该是一个法向正负的问题，但是我想偷懒
+    if(MissionIndex_ < 4){
+      // 前 4 个
+      return uavState.pt[0] + thresh > waypoints_[MissionIndex_][0];
+    }
+    else if(MissionIndex_ < 5){
+      // 12号环
+      return uavState.pt[1] + thresh > waypoints_[MissionIndex_][1];
+    }else{
+      // 返回回来的那些点
+      return uavState.pt[0] - thresh < waypoints_[MissionIndex_][0];
+    }
   }
   
   void DetectCb(const geometry_msgs::PoseArray::ConstPtr& msg){
@@ -110,19 +120,20 @@ namespace Competition{
 /* 状态检测切换线程函数 */
 
 
-
 /* 主运行函数 */
   void run(ros::NodeHandle& nh)
   {
     InitWayPoints();     // 初始化预设的位姿。然后通过detect去更新
     ros::Subscriber detectSub = nh.subscribe<geometry_msgs::PoseArray>("/paddleseg/detect", 1, &DetectCb);
+    mavros_msgs::PositionTarget cmdPVAY;
+    ros::Rate loopRate(30);
     Planner planner;
     Actuator actuator;
     Controller controller;         // 控制器是想实现一个串级 PID 的
     controller.init(actuator);     // 控制器传入执行器指针。可以设置执行器指令。
     
     VisualTool visualtool;
-    visualtool.setTargetMarker(waypoints, poses, types);
+    visualtool.setTargetMarker(waypoints_, poses, types);
   
     /* Step2: 等待手动切换 OFFBOARD 起飞！ */ 
     actuator.waitTakeoff();
@@ -133,8 +144,8 @@ namespace Competition{
     State startState, endState;
     uavPose = actuator.getPose();
     startState.pt = uavPose.pt;   // startState 和 endState 构造全是0
-    endState.pt = waypoints[MissionNums_ - 1];
-    planner.planGlobalTraj(startState, endState, waypoints, poses);
+    endState.pt = waypoints_.back();
+    planner.planGlobalTraj(startState, endState, waypoints_, poses);
     visualtool.setGlobalTrj(planner.globalTraj_);
 
     /* Step4：获取状态准备规划  */
@@ -143,37 +154,81 @@ namespace Competition{
     while(ros::ok()){
       ros::spinOnce();
       localwps.clear();
+      localPoses.clear();
       uavPose = actuator.getPose();
-      
-
-
-      if(true){    // 这个判断条件还得再想想。
+      State localtarget = planner.getLocalTarget(uavPose);
+      std::cout << "localtarget:  " << localtarget.pt.transpose() << "    " << planner.globalTraj_.last_progress_time_ << std::endl;
+      // step1. 规划局部轨迹。
+      if(isFree[MissionIndex_]){
+        // 选择局部估计的路点和pose
         if(Flag_Detect_){
           transDetect();
-          localwps.push_back(GlobalDetct_);
+          double dis1 = (localtarget.pt - uavPose.pt).norm();
+          double dis2 = (GlobalDetct_ - uavPose.pt).norm();
+          // order 一下两个点的位置
+          if(dis1 > dis2){
+            localwps.push_back(GlobalDetct_);
+            localwps.push_back(localtarget.pt);
+            localPoses.push_back(poses[MissionIndex_]);
+            localPoses.push_back(-404);
+          }else{
+            localwps.push_back(localtarget.pt);
+            localwps.push_back(GlobalDetct_);
+            localPoses.push_back(-404);
+            localPoses.push_back(poses[MissionIndex_]);
+          }
         }else{
-          localwps.push_back(waypoints[MissionIndex_]);
+          double dis1 = (localtarget.pt - uavPose.pt).norm();
+          double dis2 = (waypoints_[MissionIndex_] - uavPose.pt).norm();
+          // order 一下两个点的位置
+          if(dis1 > dis2){
+            localwps.push_back(waypoints_[MissionIndex_]);
+            localwps.push_back(localtarget.pt);
+            localPoses.push_back(poses[MissionIndex_]);
+            localPoses.push_back(-404);
+            endState = localtarget;
+          }else{
+            localwps.push_back(localtarget.pt);
+            localwps.push_back(waypoints_[MissionIndex_]);
+            localPoses.push_back(-404);
+            localPoses.push_back(poses[MissionIndex_]);
+            endState.pt = waypoints_[MissionIndex_];
+            endState.vel << UP::MaxVel * sin(poses[MissionIndex_] / 180 * M_PI), UP::MaxVel * cos(poses[MissionIndex_] / 180 * M_PI), 0;
+            endState.acc = Eigen::Vector3d::Zero();
+          }
         }
-        localPoses.push_back(poses[MissionIndex_]);
-      }
-      
 
-      if(isFree[MissionIndex_]){
-        
-
-
-
-
-
+        planner.planLocalTraj(uavPose, endState, localwps, localPoses);
+        visualtool.setLocalTrj(planner.localTraj_);
       }else{
-
-
-
-
-
-
+        // 触发避障的问题
         
+
       }
+      std::cout << "  执行轨迹： " << std::endl;
+      while(ros::ok()){
+        // 规划完局部轨迹之后：
+        ros::spinOnce();
+        uavPose = actuator.getPose();
+        State pt2follow = planner.getLocalPathPoint(ros::Time::now().toSec());
+        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
+        cmdPVAY.coordinate_frame = 1;
+        cmdPVAY.header.stamp = ros::Time::now();
+        cmdPVAY.position.x = pt2follow.pt[0];
+        cmdPVAY.position.y = pt2follow.pt[1];
+        cmdPVAY.position.z = pt2follow.pt[2];
+        cmdPVAY.yaw = atan2(pt2follow.vel[1], pt2follow.vel[0]);
+        actuator.setPVAY(cmdPVAY);
+
+        if(isCross(uavPose)){
+          std::cout <<"Crossed: " << MissionNums_ << std::endl;
+          MissionNums_++;
+          break;
+        }
+        loopRate.sleep();
+      }
+
+      loopRate.sleep();
     }  
   }  // run() END
 };

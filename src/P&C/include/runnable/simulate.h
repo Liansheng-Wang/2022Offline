@@ -66,8 +66,7 @@ namespace Simulate{
       ros::spinOnce();
       actionTime = ros::Time::now();
       rr_t = (actionTime - startTime).toSec();
-      // FIXME: getGlobalPathPoint() 这个函数肯定是有问题的。
-      State pt2follow =  planner.getGlobalPathPoint(actionTime.toSec());  
+      State pt2follow = planner.getGlobalPathPoint(actionTime.toSec());  
       curState = actuator.getPose();
       cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
       cmdPVAY.coordinate_frame = 1;
