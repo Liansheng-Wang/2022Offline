@@ -45,6 +45,7 @@ public:
 
   // 无人机状态
   State uavPose_;
+  State pt2follow_;
   enum FSM_STATE
   {
     INIT,              // 规划一个全局轨迹
@@ -82,15 +83,25 @@ public:
   void DetectCb(const geometry_msgs::PoseArray::ConstPtr& msg){
     DetectResult_ = *msg;
     // 根据任务点类别挑选结果。
+    double mindis = 100;
+    Eigen::Vector3d temp_point;
     for(auto result : DetectResult_.poses){
       if(result.position.x > 1){
         Flag_Detect_ = false;
         return;
       }
       if(int(result.orientation.w) == types[MissionIndex_]){
-        MissionPoint_[0] = result.orientation.x;
-        MissionPoint_[1] = result.orientation.y;
-        MissionPoint_[2] = result.orientation.z;
+        temp_point[0] = result.orientation.x;
+        temp_point[1] = result.orientation.y;
+        temp_point[2] = result.orientation.z;
+        double dis = temp_point.norm();
+        // 找一个最近距离的目标点
+        if(dis < mindis){
+          mindis = dis;
+          MissionPoint_[0] = result.orientation.x;
+          MissionPoint_[1] = result.orientation.y;
+          MissionPoint_[2] = result.orientation.z;
+        } 
       }
     }
     Flag_Detect_ = true;
@@ -225,29 +236,23 @@ public:
       }
       while(ros::ok()){
         ros::spinOnce();
-        if(Flag_Detect_){
-          transDetect();
-        }
+        // if(Flag_Detect_){
+        //   transDetect();
+        // }
         uavPose_ = actuator_.getPose();
-        State pt2follow = planner_.getGlobalPathPoint(ros::Time::now().toSec());
-        if(cmdPVAY.position.x > waypoints_[7][0]){
+        pt2follow_ = planner_.getGlobalPathPoint(ros::Time::now().toSec());
+        if(uavPose_.pt[0] > waypoints_[7][0]){
           MissionIndex_ = 8;
           break;
         }
         cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
         cmdPVAY.coordinate_frame = 1;
         cmdPVAY.header.stamp = ros::Time::now();
-        cmdPVAY.position.x = pt2follow.pt[0];
-        cmdPVAY.position.y = pt2follow.pt[1];
-        cmdPVAY.position.z = pt2follow.pt[2];
+        cmdPVAY.position.x = pt2follow_.pt[0];
+        cmdPVAY.position.y = pt2follow_.pt[1];
+        cmdPVAY.position.z = pt2follow_.pt[2];
         // cmdPVAY.yaw = atan2(pt2follow.vel[1], pt2follow.vel[0]);
         actuator_.setPVAY(cmdPVAY);
-
-        // if(isCross()){
-        //   std::cout <<"Crossed: " << MissionIndex_ << std::endl;
-        //   MissionIndex_++;
-        //   break;
-        // }
         loopRate_.sleep();
       }
 
@@ -256,32 +261,131 @@ public:
       }
       loopRate_.sleep();
     }
-    
-    // /* Step4：动态障碍物  */
-    Flag_getDepth_ = true;
-    DepthAvoid deavoid;
+
+    // 暂时直接跳过去障碍物 
+    actuator_.moveBody(0, 0, 1.0);
+    ros::Duration(2.0).sleep();
+
+    // 11 号环
+    ros::spinOnce();
+    uavPose_ = actuator_.getPose();
+    // 重新规划一下全局路径
+    {
+      waypoints.clear(); poses.clear();
+      for(int i = MissionIndex_;  i< MissionNums_; i++){
+        waypoints.push_back(waypoints_[i]);
+        poses.push_back(poses_[i]);
+      }
+      startState = uavPose_;
+      startState.vel = {0.3, 0, 0};
+      endState.pt = waypoints.back();
+      planner_.planGlobalTraj(startState, endState, waypoints, poses, false);
+      visualtool_.setGlobalTrj(planner_.globalTraj_);
+    }
+
     while(ros::ok()){
       ros::spinOnce();
-      if (img_depth_.empty()){
-        ROS_ERROR("Null Depth Image!");
+      uavPose_ = actuator_.getPose();
+      // if(!Flag_Detect_){
+      //   State pt2follow = planner_.getGlobalPathPoint(ros::Time::now().toSec());
+      //   cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
+      //   cmdPVAY.coordinate_frame = 1;
+      //   cmdPVAY.header.stamp = ros::Time::now();
+      //   cmdPVAY.position.x = pt2follow.pt[0];
+      //   cmdPVAY.position.y = pt2follow.pt[1];
+      //   cmdPVAY.position.z = pt2follow.pt[2];
+      //   // cmdPVAY.yaw = atan2(pt2follow.vel[1], pt2follow.vel[0]);
+      //   actuator_.setPVAY(cmdPVAY);
+      //   loopRate_.sleep();
+      // }else{
+      //   transDetect();
+      //   startState = uavPose_;
+      //   startState.vel[2] = 0;
+      //   endState.pt = GlobalDetct_;
+      //   endState.vel << UP::MaxVel * cos(poses_[MissionIndex_] / 180 * M_PI), 
+      //                   UP::MaxVel * sin(poses_[MissionIndex_] / 180 * M_PI), 0;
+      //   endState.acc = Eigen::Vector3d::Zero();
+      //   planner_.planLocalTraj(startState, endState);
+      //   visualtool_.setLocalTrj(planner_.localTraj_);
+        
+      //   while(ros::ok()){
+          
+
+
+      //   }
+      // }
+      
+      std::cout << "走全局轨迹>>>>>>>>>>> " << std::endl;
+      ros::Time start = ros::Time::now();
+      while((ros::Time::now() - start).toSec() < 2.0){
+        pt2follow_ = planner_.getGlobalPathPoint(ros::Time::now().toSec());
+        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
+        cmdPVAY.coordinate_frame = 1;
+        cmdPVAY.header.stamp = ros::Time::now();
+        cmdPVAY.position.x = pt2follow_.pt[0];
+        cmdPVAY.position.y = pt2follow_.pt[1];
+        cmdPVAY.position.z = pt2follow_.pt[2];
+        actuator_.setPVAY(cmdPVAY);
         loopRate_.sleep();
-        continue;
+      }
+        
+      ros::spinOnce();
+      uavPose_ = actuator_.getPose();
+      startState = pt2follow_;
+      endState.pt = waypoints_[MissionIndex_];
+      endState.vel << UP::MaxVel * cos(poses_[MissionIndex_] / 180 * M_PI), 
+                      UP::MaxVel * sin(poses_[MissionIndex_] / 180 * M_PI), 0;
+      endState.acc = Eigen::Vector3d::Zero();
+      planner_.planLocalTraj(startState, endState);
+      visualtool_.setLocalTrj(planner_.localTraj_);
+      
+      std::cout << "走局部轨迹>>>>>>>>>>> " << std::endl;
+      start = ros::Time::now();
+      while(ros::ok()){
+        ros::spinOnce();
+        pt2follow_ = planner_.getLocalPathPoint(ros::Time::now().toSec());
+        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
+        cmdPVAY.coordinate_frame = 1;
+        cmdPVAY.header.stamp = ros::Time::now();
+        cmdPVAY.position.x = pt2follow_.pt[0];
+        cmdPVAY.position.y = pt2follow_.pt[1];
+        cmdPVAY.position.z = pt2follow_.pt[2];
+        actuator_.setPVAY(cmdPVAY);
+        loopRate_.sleep();
+        if(isCross(0.2)){
+          break;
+        }
       }
 
-      PointCloud::Ptr cloud(new PointCloud);
-      deavoid.depth2points(img_depth_, cloud);
+      std::cout << "再走全局部轨迹>>>>>>>>>>> " << std::endl;
+      ros::spinOnce();
+      // 重新规划一下全局路径
+      {
+        waypoints.clear(); poses.clear();
+        for(int i = MissionIndex_;  i< MissionNums_; i++){
+          waypoints.push_back(waypoints_[i]);
+          poses.push_back(poses_[i]);
+        }
+        startState = pt2follow_;
+        endState.pt = waypoints.back();
+        planner_.planGlobalTraj(startState, endState, waypoints, poses, false, true);
+        visualtool_.setGlobalTrj(planner_.globalTraj_);
+      }
 
-      geometry_msgs::Point local_target;
-      deavoid.getLocalTarget(img_depth_, local_target);
+      while(ros::ok()){
+        pt2follow_ = planner_.getGlobalPathPoint(ros::Time::now().toSec());
+        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
+        cmdPVAY.coordinate_frame = 1;
+        cmdPVAY.header.stamp = ros::Time::now();
+        cmdPVAY.position.x = pt2follow_.pt[0];
+        cmdPVAY.position.y = pt2follow_.pt[1];
+        cmdPVAY.position.z = pt2follow_.pt[2];
+        actuator_.setPVAY(cmdPVAY);
+        loopRate_.sleep();
+      }
 
-      std::cout << " local_target:  " << local_target << std::endl;
-
-
-
-      loopRate_.sleep();
     }
-    Flag_getDepth_ = false;
-
+    MissionIndex_ ++;
 
 
 
@@ -289,3 +393,32 @@ public:
 }; // class END
   
 };
+
+
+
+/*  深度图转点云  */
+
+// // /* Step4：动态障碍物  */
+// Flag_getDepth_ = true;
+// DepthAvoid deavoid;
+// while(ros::ok()){
+//   ros::spinOnce();
+//   if (img_depth_.empty()){
+//     ROS_ERROR("Null Depth Image!");
+//     loopRate_.sleep();
+//     continue;
+//   }
+
+//   PointCloud::Ptr cloud(new PointCloud);
+//   deavoid.depth2points(img_depth_, cloud);
+
+//   geometry_msgs::Point local_target;
+//   deavoid.getLocalTarget(img_depth_, local_target);
+
+//   std::cout << " local_target:  " << local_target << std::endl;
+
+
+
+//   loopRate_.sleep();
+// }
+// Flag_getDepth_ = false;

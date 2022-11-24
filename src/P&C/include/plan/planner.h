@@ -30,7 +30,8 @@ public:
   PolynomialTraj globalTraj_;
 
   bool planGlobalTraj(const State& curState, const State& endState, 
-    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses, bool global = true)
+    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses, 
+    bool insert = true, bool warm = false)
   {
     std::vector<double> posesfull;
     std::vector<Eigen::Vector3d> points;
@@ -57,18 +58,19 @@ public:
     {
       inter_points.push_back(points.at(i));
       posesfull.push_back(poses.at(i));
-      double dist = (points.at(i + 1) - points.at(i)).norm();
-
-      if (dist > dist_thresh)
-      {
-        int id_num = floor(dist / dist_thresh) + 1;
-
-        for (int j = 1; j < id_num; ++j)
+      if(insert){
+        double dist = (points.at(i + 1) - points.at(i)).norm();
+        if (dist > dist_thresh)
         {
-          Eigen::Vector3d inter_pt =
-              points.at(i) * (1.0 - double(j) / id_num) + points.at(i + 1) * double(j) / id_num;
-          inter_points.push_back(inter_pt);
-          posesfull.push_back(-201);     // 设阈值为 -200，小于 -200为pose自由的点
+          int id_num = floor(dist / dist_thresh) + 1;
+
+          for (int j = 1; j < id_num; ++j)
+          {
+            Eigen::Vector3d inter_pt =
+                points.at(i) * (1.0 - double(j) / id_num) + points.at(i + 1) * double(j) / id_num;
+            inter_points.push_back(inter_pt);
+            posesfull.push_back(-201);     // 设阈值为 -200，小于 -200为pose自由的点
+          }
         }
       }
     }
@@ -90,7 +92,10 @@ public:
       // std::cout << i  << "  dis:  "<< (pos.col(i + 1) - pos.col(i)).norm() << "  time:  " << times(i) << std::endl;
     }
 
-    times(0) += 2 * UP::MaxVel / UP::MaxAcc;
+    // 不是热启动的话
+    if(!warm){
+      times(0) += 2 * UP::MaxVel / UP::MaxAcc;
+    }
     times(times.rows() - 1) += 2 * UP::MaxVel / UP::MaxAcc;
 
     PolynomialTraj ployTraj;
@@ -108,7 +113,9 @@ public:
       times(i) = dis / (UP::MaxVel);
       // std::cout << i  << "  dis:  "<< dis << "  time:  " << times(i) << std::endl;
     }
-    times(0) += 2 * UP::MaxVel / UP::MaxAcc;
+    if(!warm){
+      times(0) += 2 * UP::MaxVel / UP::MaxAcc;
+    }
     times(times.rows() - 1) += 2 * UP::MaxVel / UP::MaxAcc;
 
     if (pos.cols() >= 3)
@@ -276,12 +283,12 @@ public:
   // 单端的局部轨迹多项式
   bool planLocalTraj(const State& curState, const State& endState){
     double time = (curState.pt  - endState.pt).norm()  / UP::MaxVel + 
-                  (curState.vel - endState.vel).norm() / UP::MaxAcc;
+      (curState.vel  - endState.vel).norm() / UP::MaxAcc;
     localTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
 
     // 时间重新分配一下：
     double dis = localTraj_.getPathLen(0);
-    time = dis / UP::MaxVel + (curState.vel - endState.vel).norm() / UP::MaxAcc;
+    time = dis / UP::MaxVel + (curState.vel  - endState.vel).norm() / UP::MaxAcc;
     localTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
     localTraj_.last_progress_time_ = 0;
     localTraj_.setStartTime();

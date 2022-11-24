@@ -42,8 +42,8 @@ public:
 
 DepthAvoid::DepthAvoid(/* args */)
 {
-    depth_camera_fx = 387.229248046875 ; //相机内参
-    depth_camera_fy = 387.229248046875 ;
+    depth_camera_fx = 916.69999;  //相机内参
+    depth_camera_fy = 914.3686;
 
     thre_ = 150;
     Max_depth_ = 7.0;
@@ -60,11 +60,13 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
     int rows = img.rows;
     std::cout << img.size() << std::endl;
     std::cout << " rows: " << img.rows << " " << "cols: " << img.cols << std::endl;
-    cv::Rect rect(0, img.rows/2 - 50, img.cols, 100);
+    // cv::imshow("ori_img", img);
+    // cv::waitKey();
+    cv::Rect rect(0, img.rows/2 - 100, img.cols, 200);
     cv::Mat roi_img = cv::Mat(img, rect);
-    cv::imshow("roi_img", roi_img);
-    cv::waitKey();
-    std::cout << "111111111111111111" << std::endl;
+    // cv::imshow("roi_img", roi_img);
+    // cv::waitKey();
+    // std::cout << "111111111111111111" << std::endl;
 
     float value;
     cv::Mat roi_img_trun = cv::Mat::zeros(roi_img.size(), CV_32FC1);
@@ -80,7 +82,7 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
         }
     }
     
-    std::cout << "22222222222222222" << std::endl;
+    // std::cout << "22222222222222222" << std::endl;
     double minVal = 0;
     double maxVal = 0;
 
@@ -90,14 +92,14 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
         roi_img_trun.convertTo(img8bits, CV_8U, 255.0 / (maxVal - minVal), -255.0*minVal / (maxVal - minVal));
     }
 
-    std::cout << "3333333333333333333333333333" << std::endl;
+    // std::cout << "3333333333333333333333333333" << std::endl;
     cv::Mat img_th;
     // cv::threshold(img8bits, img_th, thre_, 255, CV_THRESH_BINARY);  // 4m内无障碍  // 16上的问题
     cv::threshold(img8bits, img_th, thre_, 255, cv::THRESH_BINARY);
 
 
-    cv::imshow("img_th", img_th);
-    cv::waitKey();
+    // cv::imshow("img_th", img_th);
+    // cv::waitKey();
 
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
     cv::Mat close_result;
@@ -105,7 +107,7 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
 
     cv::Mat img_shaped = cv::Mat(close_result.size(), CV_8UC1, cv::Scalar(255));
     
-    std::cout << "44444444444444444444" << std::endl;
+    // std::cout << "44444444444444444444" << std::endl;
     int has_obs_cont = 0;
     for(int n = 0; n < close_result.cols; n++){
         has_obs_cont = 0;
@@ -127,13 +129,13 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
        
     }
 
-    std::cout << "5555555555555555555555555" << std::endl;
-    cv::imshow("img_shaped", img_shaped);
-    cv::waitKey();
+    // std::cout << "5555555555555555555555555" << std::endl;
+    // cv::imshow("img_shaped", img_shaped);
+    // cv::waitKey();
 
     cv::Mat close_result_show;
-    // cv::cvtColor(img_shaped, close_result_show, CV_GRAY2BGR); 
-    cv::cvtColor(img_shaped, close_result_show, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(img_shaped, close_result_show, cv::COLOR_GRAY2BGR); 
+    // cv::cvtColor(img_shaped, close_result_show, cv::COLOR_BGR2GRAY);
 
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
@@ -147,7 +149,7 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
         return;
     }
 
-    std::cout << "66666666666666666666" << std::endl;
+    // std::cout << "66666666666666666666" << std::endl;
     
     for(int i = 0; i < contours.size(); i++){
         double area = cv::contourArea(contours[i]);

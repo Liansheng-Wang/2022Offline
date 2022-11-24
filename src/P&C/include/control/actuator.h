@@ -317,6 +317,21 @@ public:
     }
   }
 
+  void rotateAngleto(double degree)
+  {
+    double setyaw = degree;
+    msgPosition_.pose.position.x = motionState_.pt[0];
+    msgPosition_.pose.position.y = motionState_.pt[1];
+    msgPosition_.pose.position.z = motionState_.pt[2];
+    msgPosition_.pose.orientation.x = 0;
+    msgPosition_.pose.orientation.y = 0;
+    msgPosition_.pose.orientation.z = sin(setyaw * M_PI / 360);
+    msgPosition_.pose.orientation.w = cos(setyaw * M_PI / 360);
+    if(controlFSM_ != ActionFSM::Position){
+      controlFSM_ = ActionFSM::Position;
+    }
+  }
+
   State getPose(){
     return motionState_;
   }
