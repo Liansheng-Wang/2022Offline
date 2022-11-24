@@ -14,7 +14,7 @@ typedef Eigen::Matrix<double, 6, 3> Matrix6x3;
 
 /* 无人机本身的物理参数 */
 namespace UAVparam{
-  double MaxVel = 2.0;
+  double MaxVel = 1.5;    // 1.0 和 2.0 的速度轨迹都可以
   double MaxAcc = 3.0;
   double MaxYawRate = M_PI;
 

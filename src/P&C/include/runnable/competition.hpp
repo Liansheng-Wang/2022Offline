@@ -130,41 +130,6 @@ namespace Competition{
   }
 
 /* 状态检测切换线程函数 */
-  void execFSMCallback(const ros::TimerEvent &e){
-    switch (fsm_state_)
-    {
-    case INIT:
-    {
-      
-      break;
-    }
-
-    case GLOBAL_TRAJ:
-    {
-      
-      break;
-    }
-
-    case REPLAN_TRAJ:
-    {
-      
-      break;
-    }
-
-    case LOCAL_TRAJ:
-    {
-      
-
-      break;
-    }
-
-    case OBSTACLE:
-    {
-
-      
-    }
-    }
-  }
 
 /* 主运行函数 */
   void run(ros::NodeHandle& nh)

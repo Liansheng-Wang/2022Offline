@@ -285,6 +285,7 @@ public:
     localTraj_ = PolynomialTraj::one_traj_gen(curState, endState, time);
     localTraj_.last_progress_time_ = 0;
     localTraj_.setStartTime();
+    return true;
   }
 };
 

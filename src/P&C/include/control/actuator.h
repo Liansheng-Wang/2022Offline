@@ -42,6 +42,7 @@ public:
   {
     stateSub_     = nh_.subscribe<mavros_msgs::State>("/mavros/state",                     1, &Actuator::StateCb, this, ros::TransportHints().tcpNoDelay());
     odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom",       1, &Actuator::PoseCb,  this, ros::TransportHints().tcpNoDelay());
+    
     // odomSub_      = nh_.subscribe<nav_msgs::Odometry>("/mavros/vision_pose/pose",          1, &Actuator::PoseCb,  this, ros::TransportHints().tcpNoDelay());
     accSub_       = nh_.subscribe<sensor_msgs::Imu>("/mavros/imu/data",                    1, &Actuator::IMUCb,   this, ros::TransportHints().tcpNoDelay());
     homeSub_      = nh_.subscribe<mavros_msgs::HomePosition>("/mavros/home_position/home", 1, &Actuator::setHomeGeoPointCB, this);
@@ -101,6 +102,7 @@ private:
     ros::Rate loopRate = ros::Rate(30);
     while(ros::ok() && FLAG_running_)
     {
+      ros::spinOnce();
       switch (controlFSM_)
       {
       case Init:{
@@ -251,6 +253,68 @@ public:
       controlFSM_ = ActionFSM::PVAY;
     }
     msgPVAY_ = pvay;
+  }
+
+  void moveBodyPoint(Eigen::Vector3d point){
+    Eigen::Vector3d temp;
+    double siny = sin(motionState_.rpy[2]);
+    double cosy = cos(motionState_.rpy[2]);
+    temp[0] = point[0] * cosy - point[1] * siny;
+    temp[1] = point[0] * siny + point[1] * cosy;
+    temp[2] = point[2];
+    msgPosition_.pose.position.x = motionState_.pt[0] + temp[0];
+    msgPosition_.pose.position.y = motionState_.pt[1] + temp[1];
+    msgPosition_.pose.position.z = motionState_.pt[2] + temp[2];
+    msgPosition_.pose.orientation = uavPose_.pose.pose.orientation;
+    if(controlFSM_ != ActionFSM::Position){
+      controlFSM_ = ActionFSM::Position;
+    }
+  }
+
+  void moveBody(double x, double y, double z){
+    Eigen::Vector3d temp;
+    double siny = sin(motionState_.rpy[2]);
+    double cosy = cos(motionState_.rpy[2]);
+    temp[0] = x * cosy - y * siny;
+    temp[1] = x * siny + y * cosy;
+    temp[2] = z;
+    msgPosition_.pose.position.x = motionState_.pt[0] + temp[0];
+    msgPosition_.pose.position.y = motionState_.pt[1] + temp[1];
+    msgPosition_.pose.position.z = motionState_.pt[2] + temp[2];
+    msgPosition_.pose.orientation = uavPose_.pose.pose.orientation;
+    if(controlFSM_ != ActionFSM::Position){
+      controlFSM_ = ActionFSM::Position;
+    }
+  }
+
+  void moveBodyVel(Eigen::Vector3d vel){
+    Eigen::Vector3d temp;
+    double siny = sin(motionState_.rpy[2]);
+    double cosy = cos(motionState_.rpy[2]);
+    temp[0] = vel[0] * cosy - vel[1] * siny;
+    temp[1] = vel[0] * siny + vel[1] * cosy;
+    temp[2] = vel[2];
+    msgVel_.twist.linear.x = temp[0];
+    msgVel_.twist.linear.y = temp[1];
+    msgVel_.twist.linear.z = temp[2];
+    if(controlFSM_ != ActionFSM::Velocity){
+      controlFSM_ = ActionFSM::Velocity;
+    }
+  }
+
+  void moveBodyVel(double x, double y, double z){
+    Eigen::Vector3d temp;
+    double siny = sin(motionState_.rpy[2]);
+    double cosy = cos(motionState_.rpy[2]);
+    temp[0] = x * cosy - y * siny;
+    temp[1] = x * siny + y * cosy;
+    temp[2] = z;
+    msgVel_.twist.linear.x = temp[0];
+    msgVel_.twist.linear.y = temp[1];
+    msgVel_.twist.linear.z = temp[2];
+    if(controlFSM_ != ActionFSM::Velocity){
+      controlFSM_ = ActionFSM::Velocity;
+    }
   }
 
   State getPose(){
