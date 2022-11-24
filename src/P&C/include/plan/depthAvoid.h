@@ -16,6 +16,8 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/radius_outlier_removal.h>
 
+#include <Eigen/Core>
+
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
@@ -35,7 +37,7 @@ private:
     pcl::RadiusOutlierRemoval<PointT> rout_filter_;
 public:
     DepthAvoid(/* args */);
-    void getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target);
+    void getLocalTarget(cv::Mat img, Eigen::Vector3d &local_target);
     void depth2points(cv::Mat& depth, PointCloud::Ptr& cloud);
     ~DepthAvoid(){}
 };
@@ -53,7 +55,7 @@ DepthAvoid::DepthAvoid(/* args */)
     rout_filter_.setMinNeighborsInRadius(10);
 }
 
-void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target){
+void DepthAvoid::getLocalTarget(cv::Mat img, Eigen::Vector3d &local_target){
 
     // get size
     int cols = img.cols;
@@ -195,9 +197,10 @@ void DepthAvoid::getLocalTarget(cv::Mat img, geometry_msgs::Point &local_target)
     positionerroy = detect_depth * (( img_shaped.rows / 2 ) - box.center.y) / depth_camera_fy ;   //(上下方向分辨率为480，中心点240，上飞为正)
     positionerroz = detect_depth ;  
 
-    local_target.x = positionerroz;
-    local_target.y = positionerrox;
-    local_target.z = positionerroy;
+    local_target[0] = positionerroz;
+    local_target[1] = -positionerrox;
+    // local_target[2] = positionerroy;
+    local_target[2] = 0;
 
 }
 

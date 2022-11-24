@@ -127,7 +127,6 @@ public:
 
     ployTraj.setStartTime();
     ployTraj.last_progress_time_ = 0;
-
     globalTraj_ = ployTraj;
 
     return true;
@@ -196,7 +195,7 @@ public:
   }
 
   bool planLocalTraj(const State& curState, const State& endState, 
-    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses){
+    const std::vector<Eigen::Vector3d>& waypoints, const std::vector<double>& poses, bool insert = true){
 
     std::vector<double> posesfull;
     std::vector<Eigen::Vector3d> points;
@@ -219,18 +218,19 @@ public:
     {
       inter_points.push_back(points.at(i));
       posesfull.push_back(poses.at(i));
-      double dist = (points.at(i + 1) - points.at(i)).norm();
-
-      if (dist > dist_thresh)
-      {
-        int id_num = floor(dist / dist_thresh) + 1;
-
-        for (int j = 1; j < id_num; ++j)
+      if(insert){
+        double dist = (points.at(i + 1) - points.at(i)).norm();
+        if (dist > dist_thresh)
         {
-          Eigen::Vector3d inter_pt =
-              points.at(i) * (1.0 - double(j) / id_num) + points.at(i + 1) * double(j) / id_num;
-          inter_points.push_back(inter_pt);
-          posesfull.push_back(-404); 
+          int id_num = floor(dist / dist_thresh) + 1;
+
+          for (int j = 1; j < id_num; ++j)
+          {
+            Eigen::Vector3d inter_pt =
+                points.at(i) * (1.0 - double(j) / id_num) + points.at(i + 1) * double(j) / id_num;
+            inter_points.push_back(inter_pt);
+            posesfull.push_back(-404); 
+          }
         }
       }
     }

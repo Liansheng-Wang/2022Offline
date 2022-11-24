@@ -255,7 +255,8 @@ public:
     msgPVAY_ = pvay;
   }
 
-  void moveBodyPoint(Eigen::Vector3d point){
+  // 高度是绝对值
+  void moveBody(Eigen::Vector3d point){
     Eigen::Vector3d temp;
     double siny = sin(motionState_.rpy[2]);
     double cosy = cos(motionState_.rpy[2]);
@@ -264,7 +265,7 @@ public:
     temp[2] = point[2];
     msgPosition_.pose.position.x = motionState_.pt[0] + temp[0];
     msgPosition_.pose.position.y = motionState_.pt[1] + temp[1];
-    msgPosition_.pose.position.z = motionState_.pt[2] + temp[2];
+    msgPosition_.pose.position.z = temp[2];  
     msgPosition_.pose.orientation = uavPose_.pose.pose.orientation;
     if(controlFSM_ != ActionFSM::Position){
       controlFSM_ = ActionFSM::Position;
