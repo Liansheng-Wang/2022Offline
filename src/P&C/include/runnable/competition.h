@@ -75,22 +75,25 @@ public:
   CompetitionFSM(ros::NodeHandle& nh): loopRate_(30), nh_(nh){
     InitWayPoints();
     visualtool_.setTargetMarker(waypoints_, poses_, types);
-    detectSub_ = nh_.subscribe<geometry_msgs::PoseArray>("/paddleseg/detect", 1, &CompetitionFSM::DetectCb, this);
+    detectSub_ = nh_.subscribe<geometry_msgs::PoseArray>("/paddleseg/pose", 1, &CompetitionFSM::DetectCb, this);
     depthSub_ = nh_.subscribe("/camera/aligned_depth_to_color/image_raw", 100 , &CompetitionFSM::imageDepthCallback, this);
     cloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("/test/points", 1);
   }
 
   void DetectCb(const geometry_msgs::PoseArray::ConstPtr& msg){
     DetectResult_ = *msg;
+    Flag_Detect_ = false;
     // 根据任务点类别挑选结果。
     double mindis = 100;
     Eigen::Vector3d temp_point;
     for(auto result : DetectResult_.poses){
       if(result.position.x > 1){
-        Flag_Detect_ = false;
         return;
       }
       if(int(result.orientation.w) == types[MissionIndex_]){
+        if(result.orientation.x > 4){
+          continue;
+        }
         temp_point[0] = result.orientation.x;
         temp_point[1] = result.orientation.y;
         temp_point[2] = result.orientation.z;
@@ -101,10 +104,10 @@ public:
           MissionPoint_[0] = result.orientation.x;
           MissionPoint_[1] = result.orientation.y;
           MissionPoint_[2] = result.orientation.z;
-        } 
+        }
+        Flag_Detect_ = true;
       }
-    }
-    Flag_Detect_ = true;
+    } 
   }
 
   void imageDepthCallback(const sensor_msgs::ImageConstPtr& msg){
@@ -112,13 +115,11 @@ public:
     if(Flag_getDepth_){
       try
       {
-          //  cv_ptr = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
-          //  cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
-          cv_ptr_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+        cv_ptr_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
       }
       catch (cv_bridge::Exception& e)
       {
-          ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+        ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
       }
       //  img_sub = cv_ptr->image;
       cv_ptr_->image.copyTo(img_depth_);
@@ -136,21 +137,22 @@ public:
     waypoints_.push_back({8.0,   -0.4,  1.8}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4); 
     waypoints_.push_back({9.0,   -0.4,  1.8}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 2 号环         4
     waypoints_.push_back({13.0,  -1.08, 1.4}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
-    waypoints_.push_back({14.285,-1.18, 1.2}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(2);  // 第一个墙面      6
-    waypoints_.push_back({14.585,-1.18, 1.2}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
-    waypoints_.push_back({22.8,  -0.8,  1.5}); poses_.push_back(10);    isFree.push_back(false); types.push_back(0);  // 11 号环        8
-    waypoints_.push_back({27.50,  1.0,  1.5}); poses_.push_back(60);    isFree.push_back(true);  types.push_back(0);  // 这个type = 0, 是为了能够检测出来12              
-    // waypoints_.push_back({24.4,   2.6,  1.5}); poses_.push_back(90);  isFree.push_back(true); types.push_back(0);   // 12-1 号环     10 
-    waypoints_.push_back({27.90,  2.8,  1.5}); poses_.push_back(90);    isFree.push_back(true);  types.push_back(0);  // 12-2 号环      10
-    waypoints_.push_back({22.80,  6.54, 1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 13 号环        11
-    waypoints_.push_back({17.72,  6.05, 1.35});poses_.push_back(-404);  isFree.push_back(false); types.push_back(2);  // 插补一个避障的点 12
-    waypoints_.push_back({14.285, 5.94, 1.2}); poses_.push_back(180);   isFree.push_back(false); types.push_back(2);  // 第二个墙面      13
-    waypoints_.push_back({9.0,    5.75, 1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 8 号环动态      14
-    waypoints_.push_back({3.9,    4.6,  1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 9 号环         15  
-    waypoints_.push_back({-1.0,   4.6,  1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(3);  // 10 号异型环     16
-    waypoints_.push_back({-1.9,   4.6,  1.5}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);  // 降落点          17
+    waypoints_.push_back({14.285,-1.14, 1.2}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(2);  // 第一个墙面      6
+    waypoints_.push_back({14.585,-1.14, 1.2}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
+    waypoints_.push_back({20.8,  -0.95, 1.9}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(0);
+    waypoints_.push_back({22.8,  -0.95, 1.5}); poses_.push_back(10);    isFree.push_back(false); types.push_back(0);  // 11 号环        9
+    waypoints_.push_back({27.50,  1.0,  1.5}); poses_.push_back(60);    isFree.push_back(true);  types.push_back(0);  // 这个type = 0,  10             
+    // waypoints_.push_back({24.4,   2.6,  1.5}); poses_.push_back(90);  isFree.push_back(true); types.push_back(0);   // 12-1 号环     11 
+    waypoints_.push_back({27.90,  2.8,  1.5}); poses_.push_back(90);    isFree.push_back(true);  types.push_back(0);  // 12-2 号环      11
+    waypoints_.push_back({22.80,  6.54, 1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 13 号环        12
+    waypoints_.push_back({17.72,  6.05, 1.35});poses_.push_back(180);   isFree.push_back(false); types.push_back(2);  // 插补一个避障的点 13
+    waypoints_.push_back({14.285, 5.94, 1.2}); poses_.push_back(180);   isFree.push_back(false); types.push_back(2);  // 第二个墙面      14
+    waypoints_.push_back({9.0,    5.75, 1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 8 号环动态      15
+    waypoints_.push_back({3.9,    4.6,  1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 9 号环         16  
+    waypoints_.push_back({-1.0,   4.6,  1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(3);  // 10 号异型环     17
+    waypoints_.push_back({-1.9,   4.6,  1.5}); poses_.push_back(180);  isFree.push_back(true);  types.push_back(4);  // 降落点          18
     // 因为起飞位置造成的 bias, 需要现场修正呢。
-    bias << 0.45, 0, -0.36;
+    bias << 0.1, 0, -0.36;
     for(int i = 0; i < waypoints_.size(); i++){
       waypoints_[i] += bias;
     }
@@ -205,6 +207,7 @@ public:
 /* 主运行函数 */
   void run()
   {
+    UAVparam::LoadFromYaml(nh_);
     mavros_msgs::PositionTarget cmdPVAY;
     geometry_msgs::TwistStamped cmdVel;
 
@@ -263,40 +266,39 @@ public:
       loopRate_.sleep();
     }
 
-    // 飞机穿越之后，
-    actuator_.moveBody(0, 0, 0.5);
-    ros::Duration(1.5).sleep();
+    // 飞机穿越之后，MissionIndex_ = 8
+    actuator_.moveBody(0, 0, 1);
+    ros::Duration(2.5).sleep();
     
     /* 穿越障碍 */
-    DepthAvoid depAvoid;
-    Eigen::Vector3d local_target;
-    ros::spinOnce();
-    State lastState = actuator_.getPose();
-    Flag_getDepth_ = true;
-    while(ros::ok()){
-      ros::spinOnce();
-      uavPose_ = actuator_.getPose();
-      if (img_depth_.empty()){
-        // ROS_ERROR("Null Depth Image!");
-        loopRate_.sleep();
-        continue;
-      }
-      depAvoid.getLocalTarget(img_depth_, local_target);
-      std::cout << "local_target:  " << local_target.transpose() << std::endl;
-      local_target[0] = 0.2 * local_target[0];
-      local_target[2] = lastState.pt[2];
-      actuator_.moveBody(local_target);
-      if(uavPose_.pt[0] - lastState.pt[0] > 0.6){    // 这个超参数，到时候再说
-        break;
-      }
-      loopRate_.sleep();
-    }
+    // DepthAvoid depAvoid;
+    // Eigen::Vector3d local_target;
+    // ros::spinOnce();
+    // State lastState = actuator_.getPose();
+    // Flag_getDepth_ = true;
+    // while(ros::ok()){
+    //   ros::spinOnce();
+    //   uavPose_ = actuator_.getPose();
+    //   if (img_depth_.empty()){
+    //     // ROS_ERROR("Null Depth Image!");
+    //     loopRate_.sleep();
+    //     continue;
+    //   }
+    //   depAvoid.getLocalTarget(img_depth_, local_target);
+    //   std::cout << "local_target:  " << local_target.transpose() << std::endl;
+    //   local_target[0] = 0.2 * local_target[0];
+    //   local_target[2] = lastState.pt[2];
+    //   actuator_.moveBody(local_target);
+    //   if(uavPose_.pt[0] - lastState.pt[0] > 0.6){    // 这个超参数，到时候再说
+    //     break;
+    //   }
+    //   loopRate_.sleep();
+    // }
 
     /* 躲避移动障碍 */
-    // TODO: 
 
 
-    // 11 号环
+    // 11 号环  MissionIndex_ = 8
     ros::spinOnce();
     uavPose_ = actuator_.getPose();
     // 重新规划一下全局路径
@@ -327,21 +329,22 @@ public:
       actuator_.setPVAY(cmdPVAY);
       loopRate_.sleep();
 
-      if(Flag_Detect_){
-        transDetect();
+      if(Flag_Detect_ && uavPose_.pt[0] > waypoints_[8][0]){
+        MissionIndex_ = 10;   // 11号环是 9, 所以任务点到 10 
+        transDetect();        // 得到全局状态
         break;
       }
     }
 
     // 11号环 检测到之后：
     ros::spinOnce();
-    // 规划局部轨迹！ MissionIndex_ = 8
+    // 规划局部轨迹！ MissionIndex_ = 10
     {
       waypoints.clear(); poses.clear();
       waypoints.push_back(GlobalDetct_);
       waypoints.push_back(waypoints_[MissionIndex_ + 1]);
-      poses.push_back(poses_[MissionIndex_]);
-      poses.push_back(poses_[MissionIndex_ + 1]);
+      poses.push_back(0);
+      poses.push_back(60);   
       startState = pt2follow_;
       endState.pt = waypoints.back();
       endState.vel << UP::MaxVel * cos(poses_[MissionIndex_ + 1] / 180 * M_PI), 
@@ -364,12 +367,11 @@ public:
       loopRate_.sleep();
       if(isCross(0.2)){
         std::cout << "isCross: " << MissionIndex_ << std::endl;
-        MissionIndex_++;
         break;
       }
     }
 
-    // 12号圈: MissionIndex_ = 9
+    // 12号圈: MissionIndex_ = 10 
     ros::spinOnce();
     uavPose_ = actuator_.getPose();
     // 重新规划一下全局路径
@@ -383,7 +385,7 @@ public:
       endState.pt = waypoints.back();
       endState.vel = Eigen::Vector3d::Zero();
       endState.acc = Eigen::Vector3d::Zero();
-      planner_.planGlobalTraj(startState, endState, waypoints, poses, false, false);
+      planner_.planGlobalTraj(startState, endState, waypoints, poses, false, true);  // 热启动，第一段时间更少
       visualtool_.setGlobalTrj(planner_.globalTraj_);
     }
     while(ros::ok()){
@@ -396,13 +398,13 @@ public:
       cmdPVAY.position.x = pt2follow.pt[0];
       cmdPVAY.position.y = pt2follow.pt[1];
       cmdPVAY.position.z = pt2follow.pt[2];
-      cmdPVAY.yaw = atan2(pt2follow.vel[1], pt2follow.vel[0]);
+      cmdPVAY.yaw = M_PI_2;
       actuator_.setPVAY(cmdPVAY);
       loopRate_.sleep();
 
       if(Flag_Detect_){
         // 12 环中间有个插补点:
-        MissionIndex_++;
+        MissionIndex_ = 12;  // 该环中间有个插补点，直接跳过了
         transDetect();
         break;
       }
@@ -410,7 +412,7 @@ public:
 
     // 12号环 检测到之后：
     ros::spinOnce();
-    // 规划局部轨迹！ MissionIndex_ = 10
+    // 规划局部轨迹！ MissionIndex_ = 12 // 12号后面的点，13号环
     {
       waypoints.clear(); poses.clear();
       waypoints.push_back(GlobalDetct_);
@@ -435,12 +437,12 @@ public:
       cmdPVAY.position.x = pt2follow_.pt[0];
       cmdPVAY.position.y = pt2follow_.pt[1];
       cmdPVAY.position.z = pt2follow_.pt[2];
-      cmdPVAY.yaw = M_PI_2;
+      cmdPVAY.yaw = atan2(pt2follow_.vel[1], pt2follow_.vel[0]);
+      // cmdPVAY.yaw = M_PI_2;
       actuator_.setPVAY(cmdPVAY);
       loopRate_.sleep();
       if(isCross()){
-        std::cout << "isCross: " << MissionIndex_ << std::endl;
-        MissionIndex_++;
+        // std::cout << "isCross: " << MissionIndex_ << std::endl;
         break;
       }
     }
@@ -459,24 +461,25 @@ public:
       endState.pt = waypoints.back();
       endState.vel = Eigen::Vector3d::Zero();
       endState.acc = Eigen::Vector3d::Zero();
-      planner_.planGlobalTraj(startState, endState, waypoints, poses, false, false);
+      planner_.planGlobalTraj(startState, endState, waypoints, poses, false, true);  // 衔接的局部轨迹，输入热启动
       visualtool_.setGlobalTrj(planner_.globalTraj_);
     }
     while(ros::ok()){
       ros::spinOnce();
       uavPose_ = actuator_.getPose();
-      State pt2follow = planner_.getGlobalPathPoint(ros::Time::now().toSec());
+      pt2follow_ = planner_.getGlobalPathPoint(ros::Time::now().toSec());
       cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
       cmdPVAY.coordinate_frame = 1;
       cmdPVAY.header.stamp = ros::Time::now();
-      cmdPVAY.position.x = pt2follow.pt[0];
-      cmdPVAY.position.y = pt2follow.pt[1];
-      cmdPVAY.position.z = pt2follow.pt[2];
-      cmdPVAY.yaw = atan2(pt2follow.vel[1], pt2follow.vel[0]);
+      cmdPVAY.position.x = pt2follow_.pt[0];
+      cmdPVAY.position.y = pt2follow_.pt[1];
+      cmdPVAY.position.z = pt2follow_.pt[2];
+      cmdPVAY.yaw = atan2(pt2follow_.vel[1], pt2follow_.vel[0]);
       actuator_.setPVAY(cmdPVAY);
       loopRate_.sleep();
 
       if(Flag_Detect_){
+        MissionIndex_++;   // 检测到之后，任务点给到插补的路点。
         transDetect();
         break;
       }
@@ -514,7 +517,7 @@ public:
       loopRate_.sleep();
       if(isCross()){
         std::cout << "isCross: " << MissionIndex_ << std::endl;
-        MissionIndex_++;
+        // MissionIndex_++;  我要把
         break;
       }
     }
@@ -558,140 +561,8 @@ public:
       }
     }
 
-
-
-
-
-
-      std::cout << "走全局轨迹>>>>>>>>>>> " << std::endl;
-      ros::Time start = ros::Time::now();
-      while((ros::Time::now() - start).toSec() < 2.0){
-        pt2follow_ = planner_.getGlobalPathPoint(ros::Time::now().toSec());
-        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
-        cmdPVAY.coordinate_frame = 1;
-        cmdPVAY.header.stamp = ros::Time::now();
-        cmdPVAY.position.x = pt2follow_.pt[0];
-        cmdPVAY.position.y = pt2follow_.pt[1];
-        cmdPVAY.position.z = pt2follow_.pt[2];
-        actuator_.setPVAY(cmdPVAY);
-        loopRate_.sleep();
-      }
-        
-      ros::spinOnce();
-      uavPose_ = actuator_.getPose();
-
-      // 规划局部轨迹！
-      {
-        waypoints.clear(); poses.clear();
-        if(MissionIndex_ < MissionNums_){
-          waypoints.push_back(waypoints_[MissionIndex_]);
-          waypoints.push_back(waypoints_[MissionIndex_ + 1]);
-          poses.push_back(poses_[MissionIndex_]);
-          poses.push_back(poses_[MissionIndex_ + 1]);
-        }
-        startState = pt2follow_;
-        endState.pt = waypoints.back();
-        endState.vel << UP::MaxVel * cos(poses_[MissionIndex_ + 1] / 180 * M_PI), 
-                        UP::MaxVel * sin(poses_[MissionIndex_ + 1] / 180 * M_PI), 0;
-        endState.acc = Eigen::Vector3d::Zero();
-        std::cout << "waypoints size:  " << waypoints.size() << std::endl;
-        planner_.planLocalTraj(startState, endState, waypoints, poses, false);
-        visualtool_.setLocalTrj(planner_.localTraj_);
-      }
-
-      // {
-      //   startState = pt2follow_;
-      //   endState.pt = waypoints_[MissionIndex_];
-      //   endState.vel << UP::MaxVel * cos(poses_[MissionIndex_] / 180 * M_PI), 
-      //                   UP::MaxVel * sin(poses_[MissionIndex_] / 180 * M_PI), 0;
-      //   endState.acc = Eigen::Vector3d::Zero();
-      //   planner_.planLocalTraj(startState, endState);
-      //   visualtool_.setLocalTrj(planner_.localTraj_);
-      // }
-
-      std::cout << "走局部轨迹>>>>>>>>>>> " << std::endl;
-      start = ros::Time::now();
-      while(ros::ok()){
-        ros::spinOnce();
-        uavPose_ = actuator_.getPose();
-        pt2follow_ = planner_.getLocalPathPoint(ros::Time::now().toSec() + 0.01);
-        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
-        cmdPVAY.coordinate_frame = 1;
-        cmdPVAY.header.stamp = ros::Time::now();
-        cmdPVAY.position.x = pt2follow_.pt[0];
-        cmdPVAY.position.y = pt2follow_.pt[1];
-        cmdPVAY.position.z = pt2follow_.pt[2];
-        actuator_.setPVAY(cmdPVAY);
-        loopRate_.sleep();
-        if(isCross(0.2)){
-          MissionIndex_++;
-          std::cout << "  isCross: " << std::endl;
-          break;
-        }
-      }
-
-      std::cout << "再走全局部轨迹>>>>>>>>>>> " << std::endl;
-      ros::spinOnce();
-      uavPose_ = actuator_.getPose();
-      // 重新规划一下全局路径
-      {
-        waypoints.clear(); poses.clear();
-        for(int i = MissionIndex_;  i< MissionNums_; i++){
-          waypoints.push_back(waypoints_[i]);
-          poses.push_back(poses_[i]);
-        }
-        startState = uavPose_;
-        endState.pt = waypoints.back();
-        endState.vel = Eigen::Vector3d::Zero();
-        endState.acc = Eigen::Vector3d::Zero();
-        planner_.planGlobalTraj(startState, endState, waypoints, poses, false, true);
-        std::cout << planner_.globalTraj_.coefs_[0] << std::endl; 
-        visualtool_.setGlobalTrj(planner_.globalTraj_);
-      }
-
-      while(ros::ok()){
-        pt2follow_ = planner_.getGlobalPathPoint(ros::Time::now().toSec());
-        cmdPVAY.header.frame_id = cmdPVAY.FRAME_LOCAL_NED;
-        cmdPVAY.coordinate_frame = 1;
-        cmdPVAY.header.stamp = ros::Time::now();
-        cmdPVAY.position.x = pt2follow_.pt[0];
-        cmdPVAY.position.y = pt2follow_.pt[1];
-        cmdPVAY.position.z = pt2follow_.pt[2];
-        actuator_.setPVAY(cmdPVAY);
-        loopRate_.sleep();
-      }
-
-
   }  // run() END
 }; // class END
   
 };
 
-
-
-/*  深度图转点云  */
-
-// // /* Step4：动态障碍物  */
-// Flag_getDepth_ = true;
-// DepthAvoid deavoid;
-// while(ros::ok()){
-//   ros::spinOnce();
-//   if (img_depth_.empty()){
-//     ROS_ERROR("Null Depth Image!");
-//     loopRate_.sleep();
-//     continue;
-//   }
-
-//   PointCloud::Ptr cloud(new PointCloud);
-//   deavoid.depth2points(img_depth_, cloud);
-
-//   geometry_msgs::Point local_target;
-//   deavoid.getLocalTarget(img_depth_, local_target);
-
-//   std::cout << " local_target:  " << local_target << std::endl;
-
-
-
-//   loopRate_.sleep();
-// }
-// Flag_getDepth_ = false;

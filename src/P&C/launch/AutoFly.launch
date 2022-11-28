@@ -1,12 +1,11 @@
 <?xml version="1.0"?>
 <launch>
 
-  <param name="roll_cam"          value="0.0" />
-  <param name="pitch_cam"         value="-0.7853982" />
-  <param name="yaw_cam"           value="3.1415926" />
-  <param name="gamma_world"       value="3.1415926" />
   <param name="/env/use_sim" value= "0" type="int"/>   <!-- 0 是真实飞机, 1 是使用仿真  -->
-  
+  <param name="/UAVparam/MaxVel" value= "1.0" type="double"/>
+  <param name="/UAVparam/MaxAcc" value= "1.0" type="double"/>
+  <param name="/UAVparam/MaxYawRate" value= "1.57" type="double"/>
+
   <node pkg="controller" type="auto_fly" name="autoFly" output="screen">
   </node>
 

@@ -79,3 +79,25 @@
 
 //   loopRate.sleep();
 // }
+
+// poses_ 中小于 -200 的是不约束，该点速度方向的点
+waypoints_.push_back({3.0,    0.0,  1.5}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);  
+waypoints_.push_back({4.0,    0.0,  1.5}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 1 号环         1
+waypoints_.push_back({4.3,    0.0,  1.5}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
+waypoints_.push_back({8.0,   -0.4,  1.8}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4); 
+waypoints_.push_back({9.0,   -0.4,  1.8}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(0);  // 2 号环         4
+waypoints_.push_back({13.0,  -1.08, 1.4}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
+waypoints_.push_back({14.285,-1.18, 1.2}); poses_.push_back(0);     isFree.push_back(true);  types.push_back(2);  // 第一个墙面      6
+waypoints_.push_back({14.585,-1.18, 1.2}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
+waypoints_.push_back({20.8,  -1.18, 1.9}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);
+waypoints_.push_back({22.8,  -0.8,  1.5}); poses_.push_back(10);    isFree.push_back(false); types.push_back(0);  // 11 号环        9
+waypoints_.push_back({27.50,  1.0,  1.5}); poses_.push_back(60);    isFree.push_back(true);  types.push_back(0);  // 这个type = 0, 是为了能够检测出来12  10             
+// waypoints_.push_back({24.4,   2.6,  1.5}); poses_.push_back(90);  isFree.push_back(true); types.push_back(0);   // 12-1 号环     11 
+waypoints_.push_back({27.90,  2.8,  1.5}); poses_.push_back(90);    isFree.push_back(true);  types.push_back(0);  // 12-2 号环      11
+waypoints_.push_back({22.80,  6.54, 1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 13 号环        12
+waypoints_.push_back({17.72,  6.05, 1.35});poses_.push_back(-404);  isFree.push_back(false); types.push_back(2);  // 插补一个避障的点 13
+waypoints_.push_back({14.285, 5.94, 1.2}); poses_.push_back(180);   isFree.push_back(false); types.push_back(2);  // 第二个墙面      14
+waypoints_.push_back({9.0,    5.75, 1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 8 号环动态      15
+waypoints_.push_back({3.9,    4.6,  1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(0);  // 9 号环         16 
+waypoints_.push_back({-1.0,   4.6,  1.5}); poses_.push_back(180);   isFree.push_back(true);  types.push_back(3);  // 10 号异型环     17
+waypoints_.push_back({-1.9,   4.6,  1.5}); poses_.push_back(-404);  isFree.push_back(true);  types.push_back(4);  // 降落点  
