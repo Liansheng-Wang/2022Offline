@@ -23,10 +23,16 @@ roslaunch competition_sim sim_with_d435i.launch
 roslaunch controller AutoFly.launch
 ```
 
-## 该分支在搞大动作, 搞呀搞
+## 功能说明
 
-logic: 
+### logic: 
 
 1、根据全局路点生成全局轨迹
 
 2、根据实时检测添加圆环实际检测的约束点。然后把检测的圆环点。生成可以执行的局部轨迹
+
+### 代码：
+
+仿真的代码可以运行  
+  
+实际比赛的代码调整了特别多，目前代码没有什么参考性
